@@ -14,6 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 import time
+from scipy import signal
 
 
 
@@ -23,15 +24,14 @@ from BasicInstrumentsControl.PicoControl.PicoControl import PicoSigGenControl as
 from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
 
 # PARAMETERS
-WAIT_TIME = 2
+WAIT_TIME = 0.3
 
 
 class TransmissionSpectrum:
     def __init__(self,directory='20220824-0002',init_wavelength = 776,final_wavelength = 781,Python_Control = True):
-        """"""
         if Python_Control:
             self.Pico = Pico()
-            self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 2, offset_voltage = 0, frequency = 10,wave_type = 'RAMP_UP')
+            self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 60,wave_type = 'RAMP_UP')
             self.Scope = Scope(pico=self.Pico)
             self.Laser = Laser()
 
@@ -43,7 +43,7 @@ class TransmissionSpectrum:
             for i in np.arange(self.init_wavelength, self.final_wavelength, self.single_scan_width):
                 self.Laser.tlb_set_wavelength(i)
                 time.sleep(WAIT_TIME)
-                self.partial_spectrum.append(self.Scope.get_trace()[0])
+                self.partial_spectrum.append(self.Scope.get_trace()[1])
             self.total_spectrum = np.concatenate(self.partial_spectrum)
         else:
             self.directory = directory
@@ -93,18 +93,29 @@ class TransmissionSpectrum:
         plt.show()
 
     def plot_unfied_spectrum(self):
+        #filter the signal
+        b, a = signal.butter(4, 0.01)
+
         m_wavenumber_transmitted = (self.final_wavelength-self.init_wavelength)/len(self.total_spectrum)
         wavenumber_transmitted = m_wavenumber_transmitted*np.arange(0,len(self.total_spectrum))+self.init_wavelength
-        plt.plot(wavenumber_transmitted,self.total_spectrum)
+        plt.plot(wavenumber_transmitted,signal.filtfilt(b, a, self.total_spectrum),'r')
         plt.show()
 
     def save_figure(self,dist_name):
         plt.savefig(dist_name)
 
 if __name__ == "__main__":
-    o=TransmissionSpectrum(init_wavelength = 776,final_wavelength = 781,Python_Control = True)
-    o.plot_unfied_spectrum()
-    o.Pico.__del__()
+    try:
+        o=TransmissionSpectrum(init_wavelength = 776.5,final_wavelength = 777.5,Python_Control = True)
+        o.plot_unfied_spectrum()
+        # o.save_figure()
+        o.Pico.__del__()
+        o.Laser.__del__()
+    except:
+        o.Pico.__del__()
+        o.Laser.__del__()
+        raise
+
     # scan_spectrum = []
     # for i in range (2,6):
     #     scan_spectrum += [o.piezo_scan_spectrum(i)]
