@@ -31,7 +31,7 @@ class TransmissionSpectrum:
     def __init__(self,directory='20220824-0002',init_wavelength = 776,final_wavelength = 781,Python_Control = True):
         if Python_Control:
             self.Pico = Pico()
-            self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 60,wave_type = 'RAMP_UP')
+            self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE')
             self.Scope = Scope(pico=self.Pico)
             self.Laser = Laser()
 

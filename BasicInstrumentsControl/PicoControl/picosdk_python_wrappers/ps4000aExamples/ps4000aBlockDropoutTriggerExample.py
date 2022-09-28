@@ -33,6 +33,19 @@ except:
 
     assert_pico_ok(status["changePowerSource"])
 
+
+wavetype = ps.PS4000A_WAVE_TYPE['PS4000A_TRIANGLE']
+sweepType = ps.PS4000A_SWEEP_TYPE['PS4000A_UP']
+triggertype = ps.PS4000A_SIGGEN_TRIG_TYPE['PS4000A_SIGGEN_RISING']
+triggerSource = ps.PS4000A_SIGGEN_TRIG_SOURCE['PS4000A_SIGGEN_NONE']
+extInThreshold = ctypes.c_int16(0) #extInThreshold - Not used
+
+status["SetSigGenBuiltIn"] = ps.ps4000aSetSigGenBuiltIn(chandle, 0, 200000, wavetype, 10, 10, 0, 1, sweepType, 0, 0, 0, triggertype, triggerSource, extInThreshold)
+assert_pico_ok(status["SetSigGenBuiltIn"])
+
+
+
+
 # Set up channel A
 # handle = chandle
 # channel = PS4000a_CHANNEL_A = 0
@@ -40,7 +53,7 @@ except:
 # coupling type = PS4000a_DC = 1
 # range = PS4000a_2V = 7
 # analogOffset = 0 V
-chARange = 7
+chARange = 10
 status["setChA"] = ps.ps4000aSetChannel(chandle, 0, 1, 1, chARange, 0)
 assert_pico_ok(status["setChA"])
 
@@ -51,7 +64,7 @@ assert_pico_ok(status["setChA"])
 # coupling type = PS4000a_DC = 1
 # range = PS4000a_2V = 7
 # analogOffset = 0 V
-chBRange = 7
+chBRange = 10
 status["setChB"] = ps.ps4000aSetChannel(chandle, 1, 1, 1, chBRange, 0)
 assert_pico_ok(status["setChB"])
 
@@ -77,7 +90,7 @@ status["setTriggerChannelConditions"] = ps.ps4000aSetTriggerChannelConditions(ch
 assert_pico_ok(status["setTriggerChannelConditions"])
 
 #set trigger directions for channel A
-directions = ps.PS4000A_DIRECTION(ps.PS4000A_CHANNEL["PS4000A_CHANNEL_A"], ps.PS4000A_THRESHOLD_DIRECTION["PS4000A_ENTER"])
+directions = ps.PS4000A_DIRECTION(ps.PS4000A_CHANNEL["PS4000A_CHANNEL_A"], ps.PS4000A_THRESHOLD_DIRECTION["PS4000A_ABOVE"])
 nDirections = 1
 status["setTriggerChannelDirections"] = ps.ps4000aSetTriggerChannelDirections(chandle, ctypes.byref(directions), nDirections)
 assert_pico_ok(status["setTriggerChannelDirections"])
@@ -89,7 +102,7 @@ maxADC = ctypes.c_int16(32767)
 
 # set trigger properties for channel ADC
 thresholdUpper = mV2adc(500, 7, maxADC)
-channelProperties = ps.PS4000A_TRIGGER_CHANNEL_PROPERTIES(thresholdUpper, floor(thresholdUpper * 0.05), (thresholdUpper * -1), floor(thresholdUpper * 0.05), ps.PS4000A_CHANNEL["PS4000A_CHANNEL_A"], ps.PS4000A_THRESHOLD_MODE["PS4000A_WINDOW"])
+channelProperties = ps.PS4000A_TRIGGER_CHANNEL_PROPERTIES(floor(thresholdUpper * 0.05), floor(thresholdUpper * 0.05), (thresholdUpper * -1), floor(thresholdUpper * 0.05), ps.PS4000A_CHANNEL["PS4000A_CHANNEL_A"], ps.PS4000A_THRESHOLD_MODE["PS4000A_WINDOW"])
 nChannelProperties = 1
 autoTriggerms = 10000
 status["setTriggerChannelProperties"] = ps.ps4000aSetTriggerChannelProperties(chandle, ctypes.byref(channelProperties), nChannelProperties, 0, autoTriggerms)
@@ -101,7 +114,7 @@ status["setPulseWidthQualifierConditions"] = ps.ps4000aSetPulseWidthQualifierCon
 assert_pico_ok(status["setPulseWidthQualifierConditions"])
 
 # set pulse width qualifier properties
-direction = ps.PS4000A_THRESHOLD_DIRECTION["PS4000A_ENTER"]
+direction = ps.PS4000A_THRESHOLD_DIRECTION["PS4000A_ABOVE"]
 lower = 15
 upper = 100
 type = ps.PS4000A_PULSE_WIDTH_TYPE["PW_TYPE_IN_RANGE"]
@@ -109,8 +122,8 @@ status["setPulseWidthQualifierProperties"] = ps.ps4000aSetPulseWidthQualifierPro
 assert_pico_ok(status["setPulseWidthQualifierProperties"])
 
 # Set number of pre and post trigger samples to be collected
-preTriggerSamples = 2500
-postTriggerSamples = 2500
+preTriggerSamples = 1
+postTriggerSamples = 1
 maxSamples = preTriggerSamples + postTriggerSamples
 
 # Get timebase information
@@ -198,10 +211,11 @@ adc2mVChBMax =  adc2mV(bufferBMax, chBRange, maxADC)
 time = np.linspace(0, (cmaxSamples.value - 1) * timeIntervalns.value, cmaxSamples.value)
 
 # plot data from channel A and B
-plt.plot(time, adc2mVChAMax[:])
+plt.plot(time, adc2mVChAMax[:],label='Channel A')
 plt.plot(time, adc2mVChBMax[:])
 plt.xlabel('Time (ns)')
 plt.ylabel('Voltage (mV)')
+plt.legend()
 plt.show()
 
 # Stop the scope

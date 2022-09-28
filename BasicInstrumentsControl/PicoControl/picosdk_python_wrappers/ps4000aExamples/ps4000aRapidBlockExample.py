@@ -40,7 +40,7 @@ except: # PicoNotOkError:
 # coupling type = PS4000a_DC = 1
 # range = PS4000a_2V = 7
 # analogOffset = 0 V
-chARange = 7
+chARange = 10
 status["setChA"] = ps.ps4000aSetChannel(chandle, 0, 1, 1, chARange, 0)
 assert_pico_ok(status["setChA"])
 
@@ -51,7 +51,7 @@ assert_pico_ok(status["setChA"])
 # coupling type = PS4000a_DC = 1
 # range = PS4000a_2V = 7
 # analogOffset = 0 V
-chBRange = 7
+chBRange = 10
 status["setChB"] = ps.ps4000aSetChannel(chandle, 1, 1, 1, chBRange, 0)
 assert_pico_ok(status["setChB"])
 
@@ -63,7 +63,7 @@ assert_pico_ok(status["setChB"])
 # direction = PS4000a_RISING = 2
 # delay = 0 s
 # auto Trigger = 1000 ms
-status["trigger"] = ps.ps4000aSetSimpleTrigger(chandle, 1, 0, 1024, 2, 0, 1000)
+status["trigger"] = ps.ps4000aSetSimpleTrigger(chandle, 1, 1, 0, 2, 0, 1000)
 assert_pico_ok(status["trigger"])
 
 # Set number of pre and post trigger samples to be collected

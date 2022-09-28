@@ -35,6 +35,19 @@ except: # PicoNotOkError:
 
 
 
+
+wavetype = ps.PS4000A_WAVE_TYPE['PS4000A_TRIANGLE']
+sweepType = ps.PS4000A_SWEEP_TYPE['PS4000A_UP']
+triggertype = ps.PS4000A_SIGGEN_TRIG_TYPE['PS4000A_SIGGEN_RISING']
+triggerSource = ps.PS4000A_SIGGEN_TRIG_SOURCE['PS4000A_SIGGEN_NONE']
+extInThreshold = ctypes.c_int16(0) #extInThreshold - Not used
+
+status["SetSigGenBuiltIn"] = ps.ps4000aSetSigGenBuiltIn(chandle, 0, 200000, wavetype, 10, 10, 0, 1, sweepType, 0, 0, 0, triggertype, triggerSource, extInThreshold)
+assert_pico_ok(status["SetSigGenBuiltIn"])
+
+
+
+
 # Set up channel A
 # handle = chandle
 # channel = PS4000a_CHANNEL_A = 0
@@ -57,27 +70,27 @@ chBRange = 7
 status["setChB"] = ps.ps4000aSetChannel(chandle, 1, 1, 1, chBRange, 0)
 assert_pico_ok(status["setChB"])
 
-# Set up channel C
-# handle = chandle
-# channel = PS4000a_CHANNEL_C = 2
-# enabled = 1
-# coupling type = PS4000a_DC = 1
-# range = PS4000a_2V = 7
-# analogOffset = 0 V
-chCRange = 7
-status["setChC"] = ps.ps4000aSetChannel(chandle, 2, 0, 1, chCRange, 0)
-assert_pico_ok(status["setChC"])
-
-# Set up channel D
-# handle = chandle
-# channel = PS4000a_CHANNEL_D = 3
-# enabled = 1
-# coupling type = PS4000a_DC = 1
-# range = PS4000a_2V = 7
-# analogOffset = 0 V
-chDRange = 7
-status["setChD"] = ps.ps4000aSetChannel(chandle, 3, 0, 1, chDRange, 0)
-assert_pico_ok(status["setChD"])
+# # Set up channel C
+# # handle = chandle
+# # channel = PS4000a_CHANNEL_C = 2
+# # enabled = 1
+# # coupling type = PS4000a_DC = 1
+# # range = PS4000a_2V = 7
+# # analogOffset = 0 V
+# chCRange = 7
+# status["setChC"] = ps.ps4000aSetChannel(chandle, 2, 0, 1, chCRange, 0)
+# assert_pico_ok(status["setChC"])
+#
+# # Set up channel D
+# # handle = chandle
+# # channel = PS4000a_CHANNEL_D = 3
+# # enabled = 1
+# # coupling type = PS4000a_DC = 1
+# # range = PS4000a_2V = 7
+# # analogOffset = 0 V
+# chDRange = 7
+# status["setChD"] = ps.ps4000aSetChannel(chandle, 3, 0, 1, chDRange, 0)
+# assert_pico_ok(status["setChD"])
 
 # Set up single trigger
 # handle = chandle
@@ -87,12 +100,12 @@ assert_pico_ok(status["setChD"])
 # direction = PS4000a_RISING = 2
 # delay = 0 s
 # auto Trigger = 1000 ms
-status["trigger"] = ps.ps4000aSetSimpleTrigger(chandle, 1, 0, 1024, 2, 0, 100)
+status["trigger"] = ps.ps4000aSetSimpleTrigger(chandle, 1, 0, 0, 2, 10000, 100)
 assert_pico_ok(status["trigger"])
 
 # Set number of pre and post trigger samples to be collected
-preTriggerSamples = 2500
-postTriggerSamples = 2500
+preTriggerSamples = 220000
+postTriggerSamples = 220000
 maxSamples = preTriggerSamples + postTriggerSamples
 
 # Get timebase information
@@ -186,10 +199,11 @@ adc2mVChBMax =  adc2mV(bufferBMax, chBRange, maxADC)
 time = np.linspace(0, (cmaxSamples.value - 1) * timeIntervalns.value, cmaxSamples.value)
 
 # plot data from channel A and B
-plt.plot(time, adc2mVChAMax[:])
+plt.plot(time, adc2mVChAMax[:],label='Channel A')
 plt.plot(time, adc2mVChBMax[:])
 plt.xlabel('Time (ns)')
 plt.ylabel('Voltage (mV)')
+plt.legend()
 plt.show()
 
 # Stop the scope

@@ -302,6 +302,10 @@ if __name__=='__main__':
     # Scope.set_trigger()
     Scope.get_trace()
     Scope.plot_trace()
+
+    Scope.get_trace()
+    Scope.plot_trace()
+
     Pico.__del__()
     # Instance = 'SCOPE'
     # if Instance== 'SCOPE':
