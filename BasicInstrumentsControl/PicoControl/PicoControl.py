@@ -7,7 +7,7 @@ import time
 from math import *
 
 # PARAMETERS
-VOLT_TO_NM = 0.16/6 # calibration of volts from sigGen to nm at the laser - 1.	6 Volts pk to pk yields 0.16 nm jump(measured on the TLB screen, better result can be taken by wavelength meter).
+VOLT_TO_NM = 0.17/6 # calibration of volts from sigGen to nm at the laser - 1.	6 Volts pk to pk yields 0.16 nm jump(measured on the TLB screen, better result can be taken by wavelength meter).
 AMP_GAIN = 6/0.8 #amplifier gain (volts to volts)
 NUM_OF_SAMPLES_FOR_SINGLE_SCAN = 100 # calibrated to single scan
 ENABLED =  1
@@ -58,8 +58,8 @@ class PicoScopeControl():
     def __init__(self,pico):
         #parameters
         self.pico = pico
-        self.set_channel(channel="CH_A",channel_range = 10, analogue_offset = 0.0)
-        self.set_channel(channel="CH_B", channel_range=10, analogue_offset=0.0)
+        self.set_channel(channel="CH_A",channel_range = 8, analogue_offset = 0.0)
+        self.set_channel(channel="CH_B", channel_range=8, analogue_offset=0.0)
         self.set_memory(sizeOfOneBuffer = 50,numBuffersToCapture = 10,Channel = "CH_A")
         self.set_memory(sizeOfOneBuffer=50, numBuffersToCapture=10, Channel="CH_B")
 
@@ -233,6 +233,13 @@ class PicoScopeControl():
             assert_pico_ok(self.pico.status["setDataBuffersB"])
 
     def set_channel(self, channel="CH_A",channel_range = 7, analogue_offset = 0.0):
+        '''
+
+        :param channel:
+        :param channel_range: voltage range - table of range per number in API (2 - 50mv, 8 - 5V)
+        :param analogue_offset:
+        :return:
+        '''
         self.channel_range = channel_range
         if channel == "CH_A":
             self.pico.status["setChA"] = ps.ps4000aSetChannel(self.pico.chandle,
@@ -300,9 +307,6 @@ if __name__=='__main__':
     SigGen = PicoSigGenControl(Pico)
     Scope = PicoScopeControl(Pico)
     # Scope.set_trigger()
-    Scope.get_trace()
-    Scope.plot_trace()
-
     Scope.get_trace()
     Scope.plot_trace()
 

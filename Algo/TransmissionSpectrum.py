@@ -24,7 +24,7 @@ from BasicInstrumentsControl.PicoControl.PicoControl import PicoSigGenControl as
 from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
 
 # PARAMETERS
-WAIT_TIME = 0.3
+WAIT_TIME = 1
 
 
 class TransmissionSpectrum:
@@ -38,6 +38,7 @@ class TransmissionSpectrum:
             self.final_wavelength = final_wavelength
             self.init_wavelength = init_wavelength
             self.single_scan_width = self.SigGen.calculate_scan_width()
+            time.sleep(WAIT_TIME)
 
             self.partial_spectrum = []
             for i in np.arange(self.init_wavelength, self.final_wavelength, self.single_scan_width):
@@ -77,27 +78,33 @@ class TransmissionSpectrum:
         csv_data = pd.read_csv(filename, sep=',', header=None)
         return csv_data.values
 
-    def plot_spectrum_sheets(self,Y,num_of_plots):
-        # Create Figure and Axes instances
-        if num_of_plots>1:
-            fig = plt.figure()
-            ax1 = fig.add_axes(
-                               xticklabels=[], ylim=(-10, 10))
-            ax2 = fig.add_axes(
-                               ylim=(-10, 10))
-            ax1.plot(Y[0])
-            ax2.plot(Y[1])
-        else:
-            # Make your plot, set your axes labels
-            ax.plot(Y)
-        plt.show()
+    # def plot_spectrum_sheets(self,Y,num_of_plots):
+    #     # Create Figure and Axes instances
+    #     if num_of_plots>1:
+    #         fig = plt.figure()
+    #         ax1 = fig.add_axes(
+    #                            xticklabels=[], ylim=(-10, 10))
+    #         ax2 = fig.add_axes(
+    #                            ylim=(-10, 10))
+    #         ax1.plot(Y[0])
+    #         ax2.plot(Y[1])
+    #     else:
+    #         # Make your plot, set your axes labels
+    #         ax.plot(Y)
+    #     plt.show()
 
-    def plot_unfied_spectrum(self):
+    def plot_unfied_spectrum(self,filter_order=4, filter_critical_freq=0.99):
         #filter the signal
-        b, a = signal.butter(4, 0.01)
+        b, a = signal.butter(filter_order, filter_critical_freq)
 
-        m_wavenumber_transmitted = (self.final_wavelength-self.init_wavelength)/len(self.total_spectrum)
-        wavenumber_transmitted = m_wavenumber_transmitted*np.arange(0,len(self.total_spectrum))+self.init_wavelength
+        m_wavenumber_transmitted = (self.final_wavelength-self.init_wavelength+self.single_scan_width)/len(self.total_spectrum)
+        wavenumber_transmitted = m_wavenumber_transmitted*np.arange(0,len(self.total_spectrum))+(self.init_wavelength-self.single_scan_width/2)
+
+        plt.figure()
+        plt.title('Tansmission Spectrum')
+        plt.xlabel('Wavelength[nm]')
+        plt.ylabel('Voltage[mV]')
+        plt.grid(True)
         plt.plot(wavenumber_transmitted,signal.filtfilt(b, a, self.total_spectrum),'r')
         plt.show()
 
@@ -106,8 +113,8 @@ class TransmissionSpectrum:
 
 if __name__ == "__main__":
     try:
-        o=TransmissionSpectrum(init_wavelength = 776.5,final_wavelength = 777.5,Python_Control = True)
-        o.plot_unfied_spectrum()
+        o=TransmissionSpectrum(init_wavelength = 770,final_wavelength = 781,Python_Control = True)
+        o.plot_unfied_spectrum(filter_critical_freq=0.99)
         # o.save_figure()
         o.Pico.__del__()
         o.Laser.__del__()

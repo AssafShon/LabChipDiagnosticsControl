@@ -50,4 +50,4 @@ class LaserControl():
         return lambda_current
 if __name__=='__main__':
     o=LaserControl()
-    o.tlb_set_wavelength(780.2)
+    o.tlb_set_wavelength(778.58)
