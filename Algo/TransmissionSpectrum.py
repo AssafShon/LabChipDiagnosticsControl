@@ -39,11 +39,11 @@ class TransmissionSpectrum:
             self.init_wavelength = init_wavelength
             self.single_scan_width = self.SigGen.calculate_scan_width()
             self.Laser.tlb_set_wavelength(self.init_wavelength)
-            time.sleep(5*WAIT_TIME)
+            time.sleep(10*WAIT_TIME)
 
             self.partial_spectrum = []
             for i in np.arange(self.init_wavelength, self.final_wavelength, self.single_scan_width):
-                self.Laser.tlb_set_wavelength(i)
+                # self.Laser.tlb_set_wavelength(i)
                 time.sleep(WAIT_TIME)
 
                 self.partial_spectrum.append(self.Scope.get_trace()[1])
@@ -117,7 +117,7 @@ class TransmissionSpectrum:
 
 if __name__ == "__main__":
     try:
-        o=TransmissionSpectrum(init_wavelength = 774,final_wavelength = 781,Python_Control = True)
+        o=TransmissionSpectrum(init_wavelength = 774,final_wavelength = 779,Python_Control = True)
         o.plot_spectrum(o.total_spectrum)
         o.save_figure('transmission_spectrum.png')
         o.Pico.__del__()

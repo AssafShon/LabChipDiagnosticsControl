@@ -95,7 +95,8 @@ class PicoScopeControl():
         # direction = PS4000a_RISING = 2
         # delay = 0 s
         # auto Trigger = 1000 ms
-        self.pico.status["trigger"] = ps.ps4000aSetSimpleTrigger(self.pico.chandle, 1, 0, 0, 2, 10000, 100)
+        PS4000A_TRIGGER_CHANNEL_PROPERTIES = [ps.PS4000A_TRIGGER_CHANNEL_PROPERTIES(1024,1024,0,0,0,0)]
+        self.pico.status["trigger"] = ps.ps4000aSetTriggerChannelProperties(self.pico.chandle, ctypes.byref(PS4000A_TRIGGER_CHANNEL_PROPERTIES[0]), 1, 0, 1000)
         assert_pico_ok(self.pico.status["trigger"])
 
         # Set number of pre and post trigger samples to be collected
