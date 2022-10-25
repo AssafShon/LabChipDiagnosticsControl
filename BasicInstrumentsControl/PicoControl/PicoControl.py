@@ -73,18 +73,35 @@ class PicoScopeControl():
         plt.legend()
         plt.show()
 
-    def set_trigger(self,trigger_threshold=10024,trigger_delay=100):
-        trigger_channel = ps.PS4000A_CHANNEL['PS4000A_CHANNEL_B']
-        trigger_direction = ps.PS4000A_THRESHOLD_DIRECTION["PS4000A_ABOVE"]
-        self.pico.status["getTrigger"] = ps.ps4000aSetSimpleTrigger(
-                                                self.pico.chandle,
-                                                ENABLED,
-                                                trigger_channel,
-                                                trigger_threshold,
-                                                trigger_direction,
-                                                trigger_delay,
-                                                1000000)
-        assert_pico_ok(self.pico.status["getTrigger"])
+    def set_trigger(self, trigger_direction = ps.PS4000A_THRESHOLD_DIRECTION['PS4000A_RISING'],thresholdUpper=1000,hysteresisUpper=1000, thresholdLower=-10240, thresholdLowerHysteresis=1024,channel =  ps.PS4000A_CHANNEL['PS4000A_CHANNEL_A'], thresholdMode =ps.PS4000A_THRESHOLD_MODE['PS4000A_LEVEL'], nChannelProperties = 1, autoTriggerMilliseconds = 10000):
+        '''
+        :param thresholdUpper: the upper threshold at which the trigger must fire. This is scaled in 16-bit ADC counts at the currently selected range for that channel.
+        :param hysteresisUpper:  the distance by which the signal must fall below the upper threshold (for rising edge triggers) or rise above the upper threshold (for falling edge triggers) in order to rearm the trigger for the next event. It is scaled in 16-bit counts.
+        :param thresholdLower:   the lower threshold at which the trigger must fire. This is scaled in 16-bit ADC counts at the currently selected range for that channel.
+        :param thresholdLowerHysteresis:  the hysteresis by which the trigger must exceed the lower threshold before it will fire. It is scaled in 16-bit counts.
+        :param thresholdMode: either a level or window trigger. Use one of these constants: LEVEL\WINDOW
+        :param nChannelProperties: the size of the channelProperties array. If zero, triggering is switched off
+        :return:
+        '''
+        # self.pico.status["trigger"] = ps.ps4000aSetSimpleTrigger(self.pico.chandle, 1, 0, 0, 2, 10000, 100)
+
+        PS4000A_DIRECTION = [ps.PS4000A_DIRECTION(channel,trigger_direction,thresholdMode)]
+        self.pico.status["trigger"] = ps.ps4000aSetTriggerChannelDirections(self.pico.chandle,  ctypes.byref(
+            PS4000A_DIRECTION[0]), 0)
+        assert_pico_ok(self.pico.status["trigger"])
+
+        PS4000A_TRIGGER_CHANNEL_PROPERTIES = [ps.PS4000A_TRIGGER_CHANNEL_PROPERTIES(thresholdUpper, hysteresisUpper, thresholdLower, thresholdLowerHysteresis, channel, thresholdMode)]
+        self.pico.status["trigger"] = ps.ps4000aSetTriggerChannelProperties(self.pico.chandle, ctypes.byref(
+            PS4000A_TRIGGER_CHANNEL_PROPERTIES[0]), nChannelProperties, 0, autoTriggerMilliseconds)
+        assert_pico_ok(self.pico.status["trigger"])
+
+        CLEAR_AND_ADD = 3 #  clears previous conditions and adds the specified conditions
+        nConditions = 1
+        state_true =  ps.PS4000A_TRIGGER_STATE["PS4000A_TRUE"]
+        trigConditionA = ps.PS4000A_CONDITION(channel, state_true)
+        assert_pico_ok(ps.ps4000aSetTriggerChannelConditions(self.pico.chandle,
+                                                        ctypes.byref(trigConditionA), nConditions, CLEAR_AND_ADD)) #
+
 
     def get_trace(self):
         # Set up single trigger
@@ -95,13 +112,11 @@ class PicoScopeControl():
         # direction = PS4000a_RISING = 2
         # delay = 0 s
         # auto Trigger = 1000 ms
-        PS4000A_TRIGGER_CHANNEL_PROPERTIES = [ps.PS4000A_TRIGGER_CHANNEL_PROPERTIES(1024,1024,0,0,0,0)]
-        self.pico.status["trigger"] = ps.ps4000aSetTriggerChannelProperties(self.pico.chandle, ctypes.byref(PS4000A_TRIGGER_CHANNEL_PROPERTIES[0]), 1, 0, 1000)
-        assert_pico_ok(self.pico.status["trigger"])
+        self.set_trigger()
 
         # Set number of pre and post trigger samples to be collected
-        preTriggerSamples = 220000
-        postTriggerSamples = 220000
+        preTriggerSamples = 210000
+        postTriggerSamples = 210000
         maxSamples = preTriggerSamples + postTriggerSamples
 
         # Get timebase information
@@ -277,7 +292,7 @@ class PicoScopeControl():
 
 
 class PicoSigGenControl():
-    def __init__(self,pico, pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE'):
+    def __init__(self,pico, pk_to_pk_voltage = 0.1, offset_voltage = 0, frequency = 10,wave_type = 'SINC'):
         '''
 
         :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V]
@@ -307,9 +322,11 @@ if __name__=='__main__':
     Pico = PicoControl()
     SigGen = PicoSigGenControl(Pico)
     Scope = PicoScopeControl(Pico)
-    # Scope.set_trigger()
-    Scope.get_trace()
-    Scope.plot_trace()
+    i=0
+    for i in range(2):
+        Scope.get_trace()
+        Scope.plot_trace()
+        i=i+1
 
     Pico.__del__()
     # Instance = 'SCOPE'

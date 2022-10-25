@@ -98,6 +98,7 @@ class TransmissionSpectrum:
     def filter_spectrum(self, filter_type = 'high',filter_order=4, filter_critical_freq=0.9):
         b, a = signal.butter(filter_order, filter_critical_freq, btype=filter_type)
         return signal.filtfilt(b, a, self.total_spectrum)
+
     def plot_spectrum(self, Y):
         m_wavenumber_transmitted = (self.final_wavelength-self.init_wavelength+self.single_scan_width)/len(self.total_spectrum)
         wavenumber_transmitted = m_wavenumber_transmitted*np.arange(0,len(self.total_spectrum))+(self.init_wavelength-self.single_scan_width/2)
