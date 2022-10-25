@@ -292,7 +292,7 @@ class PicoScopeControl():
 
 
 class PicoSigGenControl():
-    def __init__(self,pico, pk_to_pk_voltage = 0.1, offset_voltage = 0, frequency = 10,wave_type = 'SINC'):
+    def __init__(self,pico, pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRAINGLE'):
         '''
 
         :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V]
