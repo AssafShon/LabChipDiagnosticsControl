@@ -39,7 +39,7 @@ class TransmissionSpectrum:
             self.init_wavelength = init_wavelength
             self.single_scan_width = self.SigGen.calculate_scan_width()
             self.Laser.tlb_set_wavelength(self.init_wavelength)
-            time.sleep(WAIT_TIME)
+            time.sleep(5*WAIT_TIME)
 
             self.partial_spectrum = []
             for i in np.arange(self.init_wavelength, self.final_wavelength, self.single_scan_width):
@@ -98,7 +98,6 @@ class TransmissionSpectrum:
     def filter_spectrum(self, filter_type = 'high',filter_order=4, filter_critical_freq=0.9):
         b, a = signal.butter(filter_order, filter_critical_freq, btype=filter_type)
         return signal.filtfilt(b, a, self.total_spectrum)
-
     def plot_spectrum(self, Y):
         m_wavenumber_transmitted = (self.final_wavelength-self.init_wavelength+self.single_scan_width)/len(self.total_spectrum)
         wavenumber_transmitted = m_wavenumber_transmitted*np.arange(0,len(self.total_spectrum))+(self.init_wavelength-self.single_scan_width/2)
@@ -118,7 +117,7 @@ class TransmissionSpectrum:
 
 if __name__ == "__main__":
     try:
-        o=TransmissionSpectrum(init_wavelength = 774,final_wavelength = 779,Python_Control = True)
+        o=TransmissionSpectrum(init_wavelength = 774,final_wavelength = 781,Python_Control = True)
         o.plot_spectrum(o.total_spectrum)
         o.save_figure('transmission_spectrum.png')
         o.Pico.__del__()
