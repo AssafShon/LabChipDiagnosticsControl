@@ -6,7 +6,7 @@
       <sourceFolder url="file://$MODULE_DIR$/BasicInstrumentsControl/PicoControl/picosdk_python_wrappers" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/BasicInstrumentsControl/PicoControl/picosdk_python_wrappers/picosdk" isTestSource="false" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.7 (marvyn_newfocus)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.9 (QSProjects)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
