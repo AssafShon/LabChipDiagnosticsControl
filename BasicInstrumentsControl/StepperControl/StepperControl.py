@@ -26,6 +26,7 @@ Z_CHANNEL = 3
 JOG_STEP_MODE = c_short(2) # defines the jog mode to be stepped and not continuous, i.e. defined by step size
 JOG_PROFILED_STOP_MODE =  c_short(2) # defines the jog stop mode to be profiled and not immediately
 Jog_WHILE_LOOP_THRESHOLD = 1e-8
+
 class StepperControl():
        """
        This module controls the Thorlab's Benchtop StepperMotor, using dll's bindings.
@@ -203,7 +204,7 @@ class StepperControl():
            self.Move_To_Absulote_Position_Stepper(Channel=Y_CHANNEL,Move_To=y_pos)
            self.Move_To_Absulote_Position_Stepper(Channel=Z_CHANNEL,Move_To=z_pos)
 
-       def Move_To_Absulote_Position_Stepper(self, Channel=X_CHANNEL, Milliseconds=100,Move_To = 800,Max_velocity = 3 ):
+       def Move_To_Absulote_Position_Stepper(self, Channel=X_CHANNEL, Milliseconds=100,Move_To = 800,Max_velocity = 3,Stop_Criteria = 0.00001 ):
            #moving the stage parameters setting
            self.c_Channel = c_short(Channel)
            c_Milliseconds = c_int(Milliseconds)
@@ -234,15 +235,15 @@ class StepperControl():
            sleep(0.2)
 
            print("Setting Absolute Position ",
-                 bsm.SBC_SetMoveAbsolutePosition(self.c_Serial_Number, self.c_Channel, c_int(Move_To)))
+                 bsm.SBC_SetMoveAbsolutePosition(self.c_Serial_Number, self.c_Channel, c_int(int(Move_To/DEVICE_UNIT_TO_MM))))
            sleep(0.2)
 
            print(f"Moving to {Move_To}", bsm.SBC_MoveAbsolute(self.c_Serial_Number, self.c_Channel))
            sleep(0.2)
-           position = int(bsm.SBC_GetPosition(self.c_Serial_Number, self.c_Channel))
+           position = int(bsm.SBC_GetPosition(self.c_Serial_Number, self.c_Channel)*DEVICE_UNIT_TO_MM)
            sleep(0.2)
            print(f"Current pos: {position}")
-           while not position == Move_To:
+           while not (position - Move_To)<Stop_Criteria:
                sleep(0.2)
                position = int(bsm.SBC_GetPosition(self.c_Serial_Number, self.c_Channel))
                print(f"Current pos: {position}")
@@ -253,5 +254,5 @@ class StepperControl():
 
 if __name__ == "__main__":
     o=StepperControl()
-    # o.Move_To_Absulote_Position_Stepper()
-    o.Jog()
+    o.Move_To_Absulote_Position_Stepper()
+    # o.Jog()

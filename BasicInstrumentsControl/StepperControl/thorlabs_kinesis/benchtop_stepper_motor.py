@@ -18,7 +18,7 @@ from ctypes import (
     CFUNCTYPE,
 )
 
-from StepperControl.thorlabs_kinesis._utils import (
+from _utils import (
     c_word,
     c_dword,
     bind

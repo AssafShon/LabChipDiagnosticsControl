@@ -66,7 +66,8 @@ class PicoScopeControl():
     def plot_trace(self):
         # Create time data
         # Plot data from channel A and B
-        plt.plot(self.time, self.adc2mVChAMax[:],label='Channel A')
+        plt.ylim(70.-70)
+        # plt.plot(self.time, self.adc2mVChAMax[:],label='Channel A')
         plt.plot(self.time, self.adc2mVChBMax[:], label='Channel B')
         plt.xlabel('Time (s)')
         plt.ylabel('Voltage (mV)')

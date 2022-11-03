@@ -28,7 +28,7 @@ WAIT_TIME = 1
 
 
 class TransmissionSpectrum:
-    def __init__(self,directory='20220824-0002',init_wavelength = 776,final_wavelength = 781,Python_Control = True):
+    def __init__(self,directory='20220824-0002',init_wavelength = 779,final_wavelength = 780.5,Python_Control = True):
         if Python_Control:
             self.Pico = Pico()
             self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE')
@@ -117,7 +117,7 @@ class TransmissionSpectrum:
 
 if __name__ == "__main__":
     try:
-        o=TransmissionSpectrum(init_wavelength = 774,final_wavelength = 781,Python_Control = True)
+        o=TransmissionSpectrum(init_wavelength = 776,final_wavelength = 781,Python_Control = True)
         o.plot_spectrum(o.total_spectrum)
         o.save_figure('transmission_spectrum.png')
         o.Pico.__del__()

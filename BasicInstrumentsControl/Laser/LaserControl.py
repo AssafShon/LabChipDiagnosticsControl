@@ -13,6 +13,7 @@ from System.Reflection import Assembly
 sys.path.append('C:\\Program Files\\New Focus\\New Focus Tunable Laser Application\\')
 clr.AddReference('BasicInstrumentsControl\\Laser\\UsbDllWrap')
 import Newport
+import time
 
 class LaserControl():
     def __init__(self):
@@ -48,6 +49,15 @@ class LaserControl():
         lambda_current = self.tlb_query('SOURCE:WAVELENGTH?')
         print('λ_current = {} nm'.format(lambda_current))
         return lambda_current
+
+    def loop_on_wavelength(self,single_scan_width,init_wavelength,final_wavelength, wait_time):
+
+
+        for i in np.arange(init_wavelength, final_wavelength, single_scan_width):
+            self.tlb_set_wavelength(i)
+            time.sleep(wait_time)
+
+
 if __name__=='__main__':
     o=LaserControl()
-    o.tlb_set_wavelength(778.58)
+    o.tlb_set_wavelength(779.5)
