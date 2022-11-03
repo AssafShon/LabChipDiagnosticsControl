@@ -14,14 +14,19 @@ from time import sleep
 
 from thorlabs_kinesis import benchtop_stepper_motor as bsm
 
+
+
 # Global Parameters
 DEVICE_UNIT_TO_MM = 1.2207020447709976e-06 #device unit to [mm]
+X_CHANNEL = 1
+Y_CHANNEL = 2
+Z_CHANNEL = 3
 
     #jog parameters
 JOG_STEP_MODE = c_short(2) # defines the jog mode to be stepped and not continuous, i.e. defined by step size
 JOG_PROFILED_STOP_MODE =  c_short(2) # defines the jog stop mode to be profiled and not immediately
 Jog_WHILE_LOOP_THRESHOLD = 1e-8
-class Stepper_Control():
+class StepperControl():
        """
        This module controls the Thorlab's Benchtop StepperMotor, using dll's bindings.
        """
@@ -186,15 +191,25 @@ class Stepper_Control():
                print(f"Can't home. Err: {err}")
            bsm.SBC_StopPolling(self.c_Serial_Number, Channel)
 
+       def Move_Stepper_To_absolute_Position_In_XYZ(self,x_pos,y_pos,z_pos):
+           '''
+           Moves the stepper to an absolute position in all three dimensions.
+           :param x_pos: position in x (fiber toward chip direction)  [mm]
+           :param y_pos:  position in y  [mm]
+           :param z_pos:  position in z (height)  [mm]
+           :return:
+           '''
+           self.Move_To_Absulote_Position_Stepper(Channel=X_CHANNEL,Move_To=x_pos)
+           self.Move_To_Absulote_Position_Stepper(Channel=Y_CHANNEL,Move_To=y_pos)
+           self.Move_To_Absulote_Position_Stepper(Channel=Z_CHANNEL,Move_To=z_pos)
 
-
-       def Move_To_Absulote_Position_Stepper(self, Channel=1, Milliseconds=100,Move_To = 800):
+       def Move_To_Absulote_Position_Stepper(self, Channel=X_CHANNEL, Milliseconds=100,Move_To = 800,Max_velocity = 3 ):
            #moving the stage parameters setting
            self.c_Channel = c_short(Channel)
            c_Milliseconds = c_int(Milliseconds)
 
            velocity_inf = bsm.MOT_VelocityParameters()  # container
-           velocity_inf.maxVelocity = c_int(3)
+           velocity_inf.maxVelocity = c_int(Max_velocity)
            print(velocity_inf)
            #
            print("Setting step velocity ", bsm.SBC_SetVelParamsBlock(self.c_Serial_Number,self.c_Channel,byref(velocity_inf)))
@@ -237,6 +252,6 @@ class Stepper_Control():
 
 
 if __name__ == "__main__":
-    o=Stepper_Control()
+    o=StepperControl()
     # o.Move_To_Absulote_Position_Stepper()
     o.Jog()
