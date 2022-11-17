@@ -26,6 +26,8 @@ from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
 
 # PARAMETERS
 WAIT_TIME = 1
+CH_A=0
+CH_B = 1
 
 
 
@@ -44,11 +46,16 @@ class TransmissionSpectrum:
             time.sleep(5*WAIT_TIME)
 
             self.partial_spectrum = []
+            # jump between wavelengths and take traces
             for i in np.arange(self.init_wavelength, self.final_wavelength, self.single_scan_width):
                 self.Laser.tlb_set_wavelength(i)
+                # added wait time to make sure the laser moved to it's new wavelength
                 time.sleep(WAIT_TIME)
-
-                self.partial_spectrum.append(self.Scope.get_trace()[1])
+                # first scan to calibrate the range
+                self.Scope.calibrate_range()
+                # take trace from the scope
+                self.partial_spectrum.append(self.Scope.get_trace()[CH_B] + self.Scope.calibrate_trace_avg_voltage*1000)
+                # patch the traces
             self.total_spectrum = np.concatenate(self.partial_spectrum)
         else:
             self.directory = directory
@@ -100,9 +107,10 @@ class TransmissionSpectrum:
     def filter_spectrum(self, filter_type = 'high',filter_order=4, filter_critical_freq=0.9):
         b, a = signal.butter(filter_order, filter_critical_freq, btype=filter_type)
         return signal.filtfilt(b, a, self.total_spectrum)
+
     def plot_spectrum(self, Y):
         m_wavenumber_transmitted = (self.final_wavelength-self.init_wavelength+self.single_scan_width)/len(self.total_spectrum)
-        wavenumber_transmitted = m_wavenumber_transmitted*np.arange(0,len(self.total_spectrum))+(self.init_wavelength-self.single_scan_width/2)
+        self.scan_wavelengths = m_wavenumber_transmitted*np.arange(0,len(self.total_spectrum))+(self.init_wavelength-self.single_scan_width/2)
 
 
         plt.figure()
@@ -110,7 +118,7 @@ class TransmissionSpectrum:
         plt.xlabel('Wavelength[nm]')
         plt.ylabel('Voltage[mV]')
         plt.grid(True)
-        plt.plot(wavenumber_transmitted, Y,'r')
+        plt.plot(self.scan_wavelengths, Y,'r')
         plt.show()
 
     def save_figure_and_data(self,dist_root,spectrum_data,decimation):
@@ -120,7 +128,7 @@ class TransmissionSpectrum:
         plt.savefig(dist_root+'\\'+timestr+'Transmission_spectrum.png')
         #save data as csv
         np.savetxt(dist_root+'\\'+timestr+'Transmission_spectrum.csv', spectrum_data[0:-1:decimation], delimiter=',')
-        np.save(dist_root+'\\'+timestr+'Transmission_spectrum', spectrum_data[0:-1:decimation])
+        np.savez(dist_root+'\\'+timestr+'Transmission_spectrum.npz', spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths[0:-1:decimation])
 
 if __name__ == "__main__":
     try:

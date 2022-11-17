@@ -10,11 +10,15 @@ from math import *
 VOLT_TO_NM = 0.17/6 # calibration of volts from sigGen to nm at the laser - 1.	6 Volts pk to pk yields 0.16 nm jump(measured on the TLB screen, better result can be taken by wavelength meter).
 AMP_GAIN = 6/0.8 #amplifier gain (volts to volts)
 NUM_OF_SAMPLES_FOR_SINGLE_SCAN = 100 # calibrated to single scan
-ENABLED =  1
+ENABLED = 1
+CH_A = 0
+CH_B = 1
+
 
 class PicoControl():
     def __init__(self):
         self.connect()
+        self.dictionary_voltage_range = ps.PICO_VOLTAGE_RANGE # voltage range dictionary for the scope
 
     def __del__(self):
         # Stop the scope
@@ -58,15 +62,15 @@ class PicoScopeControl():
     def __init__(self,pico):
         #parameters
         self.pico = pico
-        self.set_channel(channel="CH_A",channel_range = 8, analogue_offset = 0.0)
-        self.set_channel(channel="CH_B", channel_range=8, analogue_offset=0.0)
+        self.set_channel(channel="CH_A",channel_range = 8, analog_offset = 0.0)
+        self.set_channel(channel="CH_B", channel_range=5, analog_offset=0.0)
         self.set_memory(sizeOfOneBuffer = 50,numBuffersToCapture = 10,Channel = "CH_A")
         self.set_memory(sizeOfOneBuffer=50, numBuffersToCapture=10, Channel="CH_B")
 
     def plot_trace(self):
         # Create time data
         # Plot data from channel A and B
-        plt.ylim(70.-70)
+        # plt.ylim(500,-500)
         # plt.plot(self.time, self.adc2mVChAMax[:],label='Channel A')
         plt.plot(self.time, self.adc2mVChBMax[:], label='Channel B')
         plt.xlabel('Time (s)')
@@ -102,6 +106,25 @@ class PicoScopeControl():
         trigConditionA = ps.PS4000A_CONDITION(channel, state_true)
         assert_pico_ok(ps.ps4000aSetTriggerChannelConditions(self.pico.chandle,
                                                         ctypes.byref(trigConditionA), nConditions, CLEAR_AND_ADD)) #
+
+    def calibrate_range(self):
+        '''
+        calibrates the range of a trace to get the maximal resolution.
+        :return: the range of values of the trace
+        '''
+        #take trace for calibration (in V)
+        self.calibrate_trace = np.array(self.get_trace()[CH_B])/1000
+        # find range which is one after the closest one to the data (to make sure the limit is not
+        # too close)
+        trace_range = np.ptp(self.calibrate_trace)
+        range_diff = np.array(list(self.pico.dictionary_voltage_range.values())) - trace_range
+        # finds
+        self.channel_range = int(np.where(range_diff == [min(range_diff[range_diff > 0])])[0])+1
+
+        # find mean value
+        self.calibrate_trace_avg_voltage = np.mean(self.calibrate_trace)
+        self.set_channel(channel="CH_B",channel_range=self.channel_range, analog_offset = -float(self.calibrate_trace_avg_voltage))
+        return trace_range
 
 
     def get_trace(self):
@@ -249,7 +272,7 @@ class PicoScopeControl():
                                                                       ps.PS4000A_RATIO_MODE['PS4000A_RATIO_MODE_NONE'])
             assert_pico_ok(self.pico.status["setDataBuffersB"])
 
-    def set_channel(self, channel="CH_A",channel_range = 7, analogue_offset = 0.0):
+    def set_channel(self, channel="CH_A",channel_range = 6, analog_offset = 0.0):
         '''
 
         :param channel:
@@ -257,15 +280,15 @@ class PicoScopeControl():
         :param analogue_offset:
         :return:
         '''
-        self.channel_range = channel_range
         if channel == "CH_A":
             self.pico.status["setChA"] = ps.ps4000aSetChannel(self.pico.chandle,
                                                     ps.PS4000A_CHANNEL['PS4000A_CHANNEL_A'],
                                                     ENABLED,
                                                     ps.PS4000A_COUPLING['PS4000A_DC'],
                                                     channel_range,
-                                                    analogue_offset)
+                                                    analog_offset)
             assert_pico_ok(self.pico.status["setChA"])
+            # print('Voltage range for channel A is set to ',self.voltage_range[channel_range],' V. Digitization accuracy might be affected.')
             self.chARange = channel_range
         else:
             self.pico.status["setChB"] = ps.ps4000aSetChannel(self.pico.chandle,
@@ -273,7 +296,7 @@ class PicoScopeControl():
                                                          ENABLED,
                                                          ps.PS4000A_COUPLING['PS4000A_DC'],
                                                          channel_range,
-                                                         analogue_offset)
+                                                         analog_offset)
             assert_pico_ok(self.pico.status["setChB"])
             self.chBRange = channel_range
 
@@ -293,7 +316,7 @@ class PicoScopeControl():
 
 
 class PicoSigGenControl():
-    def __init__(self,pico, pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRAINGLE'):
+    def __init__(self,pico, pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE'):
         '''
 
         :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V]
@@ -323,11 +346,11 @@ if __name__=='__main__':
     Pico = PicoControl()
     SigGen = PicoSigGenControl(Pico)
     Scope = PicoScopeControl(Pico)
-    i=0
-    for i in range(2):
-        Scope.get_trace()
-        Scope.plot_trace()
-        i=i+1
+    # i=0
+    # for i in range(2):
+    Scope.get_trace()
+    Scope.plot_trace()
+        # i=i+1
 
     Pico.__del__()
     # Instance = 'SCOPE'
