@@ -23,12 +23,14 @@ from BasicInstrumentsControl.PicoControl.PicoControl import PicoScopeControl as 
 from BasicInstrumentsControl.PicoControl.PicoControl import PicoSigGenControl as SigGen
 from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
 
+
 # PARAMETERS
 WAIT_TIME = 1
 
 
+
 class TransmissionSpectrum:
-    def __init__(self,directory='20220824-0002',init_wavelength = 779,final_wavelength = 780.5,Python_Control = True):
+    def __init__(self,directory='20220824-0002',init_wavelength = 772,final_wavelength = 781,Python_Control = True):
         if Python_Control:
             self.Pico = Pico()
             self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE')
@@ -111,15 +113,20 @@ class TransmissionSpectrum:
         plt.plot(wavenumber_transmitted, Y,'r')
         plt.show()
 
-    def save_figure(self,dist_name):
+    def save_figure_and_data(self,dist_root,spectrum_data,decimation):
         timestr = time.strftime("%Y%m%d-%H%M%S")
-        plt.savefig(timestr+'_'+dist_name)
+
+        # save figure
+        plt.savefig(dist_root+'\\'+timestr+'Transmission_spectrum.png')
+        #save data as csv
+        np.savetxt(dist_root+'\\'+timestr+'Transmission_spectrum.csv', spectrum_data[0:-1:decimation], delimiter=',')
+        np.save(dist_root+'\\'+timestr+'Transmission_spectrum', spectrum_data[0:-1:decimation])
 
 if __name__ == "__main__":
     try:
-        o=TransmissionSpectrum(init_wavelength = 776,final_wavelength = 781,Python_Control = True)
+        o=TransmissionSpectrum(init_wavelength = 772,final_wavelength = 781,Python_Control = True)
         o.plot_spectrum(o.total_spectrum)
-        o.save_figure('transmission_spectrum.png')
+        o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum,1000)
         o.Pico.__del__()
         o.Laser.__del__()
     except:
