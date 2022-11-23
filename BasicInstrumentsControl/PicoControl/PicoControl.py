@@ -128,6 +128,10 @@ class PicoScopeControl():
 
 
     def get_trace(self):
+        '''
+        calls for trace from the pico, triggered byupper and lower thrshold to handle noise in trigger channel.
+        :return:
+        '''
         # Set up single trigger
         # handle = chandle
         # enabled = 1
@@ -138,7 +142,7 @@ class PicoScopeControl():
         # auto Trigger = 1000 ms
         self.set_trigger()
 
-        # Set number of pre and post trigger samples to be collected
+        # Set number of pre and post trigger samples to be collected. Calibrated for 10 Hz scan rate of the sigGen.
         preTriggerSamples = 210000
         postTriggerSamples = 210000
         maxSamples = preTriggerSamples + postTriggerSamples
@@ -272,14 +276,16 @@ class PicoScopeControl():
                                                                       ps.PS4000A_RATIO_MODE['PS4000A_RATIO_MODE_NONE'])
             assert_pico_ok(self.pico.status["setDataBuffersB"])
 
-    def set_channel(self, channel="CH_A",channel_range = 6, analog_offset = 0.0):
+    def set_channel(self, channel="CH_A",channel_range = 7, analogue_offset = 0.0):
         '''
 
-        :param channel:
-        :param channel_range: voltage range - table of range per number in API (2 - 50mv, 8 - 5V)
-        :param analogue_offset:
+        :param channel: channel a ("CH_A") or b ("CH_B")
+        :param channel_range: voltage range - table of range per number in API (2 - 50mv, 8 - 5V). Affects the digitization resolution.
+        :param analogue_offset: an offset, in volts, to be added to the input signal before it reaches the input amplifier and digitizer.
+                                up to 250mv - See the device data sheet for the allowable range.
         :return:
         '''
+        self.channel_range = channel_range
         if channel == "CH_A":
             self.pico.status["setChA"] = ps.ps4000aSetChannel(self.pico.chandle,
                                                     ps.PS4000A_CHANNEL['PS4000A_CHANNEL_A'],
@@ -288,7 +294,6 @@ class PicoScopeControl():
                                                     channel_range,
                                                     analog_offset)
             assert_pico_ok(self.pico.status["setChA"])
-            # print('Voltage range for channel A is set to ',self.voltage_range[channel_range],' V. Digitization accuracy might be affected.')
             self.chARange = channel_range
         else:
             self.pico.status["setChB"] = ps.ps4000aSetChannel(self.pico.chandle,
@@ -316,12 +321,13 @@ class PicoScopeControl():
 
 
 class PicoSigGenControl():
-    def __init__(self,pico, pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE'):
+    def __init__(self,pico, pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRAINGLE'):
         '''
 
-        :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V]
+        :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V].
+                                 With the current amplifier shoud be 0.8V to gerate 6V pk to pk which is the laser dynamic range.
         :param offset_voltage: offset of the voltage range center from 0V
-        :param frequency: repetition frequency of the signal generator [Hz]
+        :param frequency: repetition frequency of the signal generator [Hz]. Change can harm TransmissionSpectrum run - Any change in the frequency affect the number of repetitions of the traces from each scan.
         '''
         self.pico = pico
 
@@ -339,6 +345,10 @@ class PicoSigGenControl():
         assert_pico_ok(self.pico.status["SetSigGenBuiltIn"])
 
     def calculate_scan_width(self):
+        '''
+        calculate the scan width in nm per pk to pk voltage.
+        :return:
+        '''
         self.scan_width = (self.pk_to_pk_voltage*1e-6*AMP_GAIN) * VOLT_TO_NM
         return self.scan_width
 

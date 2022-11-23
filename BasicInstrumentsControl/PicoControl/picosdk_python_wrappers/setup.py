@@ -13,7 +13,7 @@ import os.path
 
 signalfile = ".sdkwarning"
 if not os.path.exists(signalfile):
-    name = 'ps2000'
+    name = 'ps4000a'
     try:
         if sys.platform == 'win32':
             result = ctypes.WinDLL(find_library(name))

@@ -8,7 +8,7 @@
       <sourceFolder url="file://$MODULE_DIR$/BasicInstrumentsControl/StepperControl" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/BasicInstrumentsControl/StepperControl/thorlabs_kinesis" isTestSource="false" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.10 (ThorlabsBenchtopController)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.9 (LabChipDiagnosticsControl)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
