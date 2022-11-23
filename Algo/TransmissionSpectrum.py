@@ -23,7 +23,6 @@ from BasicInstrumentsControl.PicoControl.PicoControl import PicoScopeControl as 
 from BasicInstrumentsControl.PicoControl.PicoControl import PicoSigGenControl as SigGen
 from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
 
-
 # PARAMETERS
 WAIT_TIME = 1
 CH_A=0
