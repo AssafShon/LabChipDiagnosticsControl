@@ -60,4 +60,4 @@ class LaserControl():
 
 if __name__=='__main__':
     o=LaserControl()
-    o.tlb_set_wavelength(779.5)
+    o.tlb_set_wavelength(776.1)

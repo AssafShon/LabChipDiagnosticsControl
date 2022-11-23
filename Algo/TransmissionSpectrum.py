@@ -31,16 +31,23 @@ CH_B = 1
 
 
 class TransmissionSpectrum:
-    def __init__(self,directory='20220824-0002',init_wavelength = 772,final_wavelength = 781,Python_Control = True):
+    def __init__(self,directory='20220824-0002',init_wavelength = 772,final_wavelength = 781,Python_Control = True, parmeters_by_console = True):
         if Python_Control:
             self.Pico = Pico()
             self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE')
             self.Scope = Scope(pico=self.Pico)
             self.Laser = Laser()
 
+            if parmeters_by_console:
+                print("Enter initial wavelength for scan:")
+                init_wavelength = float(input())
+                print("Enter final wavelength for scan:")
+                final_wavelength = float(input())
+
             self.final_wavelength = final_wavelength
             self.init_wavelength = init_wavelength
             self.single_scan_width = self.SigGen.calculate_scan_width()
+            print('The scan width in nm is:',self.single_scan_width)
             self.Laser.tlb_set_wavelength(self.init_wavelength)
             time.sleep(5*WAIT_TIME)
 
@@ -50,7 +57,7 @@ class TransmissionSpectrum:
                 self.Laser.tlb_set_wavelength(i)
                 # added wait time to make sure the laser moved to it's new wavelength
                 time.sleep(WAIT_TIME)
-                # first scan to calibrate the range
+                # # first scan to calibrate the range
                 self.Scope.calibrate_range()
                 # take trace from the scope
                 self.partial_spectrum.append(self.Scope.get_trace()[CH_B] + self.Scope.calibrate_trace_avg_voltage*1000)
@@ -71,10 +78,6 @@ class TransmissionSpectrum:
         self.total_spectrum = [float(item) for item in self.total_spectrum]
         self.total_spectrum = np.array(self.total_spectrum)
 
-    def remove_infs(self):
-        for i in range(1, len(self.total_spectrum)):
-            if self.total_spectrum[i] == '-∞':
-                self.total_spectrum[i] = '-10'
 
     def piezo_scan_spectrum(self, i):
         filename = '20220824-0001_' + '{0:04}'.format(i) + '.csv'
@@ -88,21 +91,6 @@ class TransmissionSpectrum:
         csv_data = pd.read_csv(filename, sep=',', header=None)
         return csv_data.values
 
-    # def plot_spectrum_sheets(self,Y,num_of_plots):
-    #     # Create Figure and Axes instances
-    #     if num_of_plots>1:
-    #         fig = plt.figure()
-    #         ax1 = fig.add_axes(
-    #                            xticklabels=[], ylim=(-10, 10))
-    #         ax2 = fig.add_axes(
-    #                            ylim=(-10, 10))
-    #         ax1.plot(Y[0])
-    #         ax2.plot(Y[1])
-    #     else:
-    #         # Make your plot, set your axes labels
-    #         ax.plot(Y)
-    #     plt.show()
-
     def filter_spectrum(self, filter_type = 'high',filter_order=4, filter_critical_freq=0.9):
         b, a = signal.butter(filter_order, filter_critical_freq, btype=filter_type)
         return signal.filtfilt(b, a, self.total_spectrum)
@@ -110,7 +98,6 @@ class TransmissionSpectrum:
     def plot_spectrum(self, Y):
         m_wavenumber_transmitted = (self.final_wavelength-self.init_wavelength+self.single_scan_width)/len(self.total_spectrum)
         self.scan_wavelengths = m_wavenumber_transmitted*np.arange(0,len(self.total_spectrum))+(self.init_wavelength-self.single_scan_width/2)
-
 
         plt.figure()
         plt.title('Tansmission Spectrum')
