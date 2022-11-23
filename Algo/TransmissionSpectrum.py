@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import time
 from scipy import signal
-from datetime import datetime
+import os
 
 
 from BasicInstrumentsControl.PicoControl.PicoControl import PicoControl as Pico
@@ -120,20 +120,23 @@ class TransmissionSpectrum:
         plt.plot(self.scan_wavelengths, Y,'r')
         plt.show()
 
-    def save_figure_and_data(self,dist_root,spectrum_data,decimation):
+    def save_figure_and_data(self,dist_root,spectrum_data,decimation,filename = 'Transmission_spectrum'):
         timestr = time.strftime("%Y%m%d-%H%M%S")
-
+        # create directory
+        directory_path = os.path.join(dist_root,timestr)
+        os.mkdir(directory_path )
         # save figure
-        plt.savefig(dist_root+'\\'+timestr+'Transmission_spectrum.png')
+        plt.savefig(os.path.join(directory_path,timestr+filename+'.png'))
         #save data as csv
-        np.savetxt(dist_root+'\\'+timestr+'Transmission_spectrum.csv', spectrum_data[0:-1:decimation], delimiter=',')
-        np.savez(dist_root+'\\'+timestr+'Transmission_spectrum.npz', spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths[0:-1:decimation])
+        np.savetxt(os.path.join(directory_path,timestr+filename+'.csv'), spectrum_data[0:-1:decimation], delimiter=',')
+        #save python data
+        np.savez(os.path.join(directory_path,timestr+filename+'.npz'), spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths[0:-1:decimation])
 
 if __name__ == "__main__":
     try:
         o=TransmissionSpectrum(init_wavelength = 772,final_wavelength = 781,Python_Control = True)
-        o.plot_spectrum(o.total_spectrum)
-        o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum,1000)
+        # o.plot_spectrum(o.total_spectrum)
+        o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',[1,2,3],1000, 'Test')
         o.Pico.__del__()
         o.Laser.__del__()
     except:
