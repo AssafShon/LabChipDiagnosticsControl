@@ -2,7 +2,7 @@ from TransmissionSpectrum import TransmissionSpectrum
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-
+from BasicInstrumentsControl.PicoControl.PicoControl import PicoControl as Pico
 WAIT_TIME = 0.1
 
 class HeaterScan(TransmissionSpectrum):
