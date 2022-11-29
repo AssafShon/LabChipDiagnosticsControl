@@ -9,7 +9,8 @@ from scipy.optimize import curve_fit
 C_light= 2.99792458e8
 
 class AnalyzeSpectrum():
-    def __init__(self, decimation = 1000, prominence=20, height=None, distance=None, rel_height=0.5,run_experiment=False):
+    def __init__(self, decimation = 1000,
+                 prominence=20, height=None, distance=None, rel_height=0.5,run_experiment=False):
         if run_experiment:
             pass
         else:
