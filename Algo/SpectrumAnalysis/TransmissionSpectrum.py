@@ -89,8 +89,6 @@ class TransmissionSpectrum:
         # create vector of wavelengths in the scan
         self.find_wavelength_scanned()
 
-        self.analyzed_spectrum = AnalyzeSpectrum(decimation)
-
 
     def find_wavelength_scanned(self):
         m_wavenumber_transmitted = (self.final_wavelength - self.init_wavelength + self.single_scan_width) / len(
