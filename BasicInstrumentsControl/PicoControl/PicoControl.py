@@ -117,15 +117,31 @@ class PicoScopeControl():
         # find range which is one after the closest one to the data (to make sure the limit is not
         # too close)
         trace_range = np.ptp(self.calibrate_trace)
+
+        # finds the channel range which is larger by one from the closest one to the signal range
         range_diff = np.array(list(self.pico.dictionary_voltage_range.values())) - trace_range
-        # finds
         self.channel_range = int(np.where(range_diff == [min(range_diff[range_diff > 0])])[0])+1
 
+        # finds the min/max analog offset for specific offset
+        self.maxAnalogOffset = ctypes.c_float()
+        self.minAnalogOffset = ctypes.c_float()
+        ps.ps4000aGetAnalogueOffset(self.pico.chandle,
+                             self.channel_range,
+                             ps.PS4000A_COUPLING['PS4000A_DC'],
+                             ctypes.byref(self.maxAnalogOffset),
+                             ctypes.byref(self.minAnalogOffset))
         # find mean value
-        self.calibrate_trace_avg_voltage = np.mean(self.calibrate_trace)
-        self.set_channel(channel="CH_B",channel_range=self.channel_range, analog_offset = -float(self.calibrate_trace_avg_voltage))
-        return trace_range
+        self.calibrate_trace_avg_voltage = float(np.mean(self.calibrate_trace))
+        if np.abs(self.calibrate_trace_avg_voltage)<0.1:
+            self.analog_offset = 0 # if the signal dc is less then mA don't offset
+        elif self.calibrate_trace_avg_voltage>self.maxAnalogOffset:
+            self.analog_offset = self.maxAnalogOffset
+        else:
+            self.analog_offset = np.max([self.minAnalogOffset.value,self.calibrate_trace_avg_voltage])
 
+
+        self.set_channel(channel="CH_B",channel_range=self.channel_range, analog_offset = -self.analog_offset)
+        return trace_range
 
     def get_trace(self):
         '''
@@ -276,7 +292,7 @@ class PicoScopeControl():
                                                                       ps.PS4000A_RATIO_MODE['PS4000A_RATIO_MODE_NONE'])
             assert_pico_ok(self.pico.status["setDataBuffersB"])
 
-    def set_channel(self, channel="CH_A",channel_range = 7, analogue_offset = 0.0):
+    def set_channel(self, channel="CH_A",channel_range = 7, analog_offset = 0.0):
         '''
 
         :param channel: channel a ("CH_A") or b ("CH_B")

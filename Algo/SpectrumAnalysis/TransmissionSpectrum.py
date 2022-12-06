@@ -17,7 +17,6 @@ import time
 from scipy import signal
 import os
 
-from AnalyzeSpectrum import AnalyzeSpectrum
 from BasicInstrumentsControl.PicoControl.PicoControl import PicoControl as Pico
 from BasicInstrumentsControl.PicoControl.PicoControl import PicoScopeControl as Scope
 from BasicInstrumentsControl.PicoControl.PicoControl import PicoSigGenControl as SigGen
@@ -31,7 +30,7 @@ CH_B = 1
 
 
 class TransmissionSpectrum:
-    def __init__(self,directory='20220824-0002',init_wavelength = 772,final_wavelength = 781,Python_Control = True,parmeters_by_console = True):
+    def __init__(self,directory='20220824-0002',init_wavelength = 772,final_wavelength = 781,Python_Control = True):
         '''
 
         :param directory: directory to load traces (relevant when Python_Control=False)
@@ -41,48 +40,44 @@ class TransmissionSpectrum:
         :param decimation:
         '''
         if Python_Control:
+            #connect to instruments
             self.Pico = Pico()
             self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE')
             self.Scope = Scope(pico=self.Pico)
             self.Laser = Laser()
 
-            if parmeters_by_console:
-                print("Enter initial wavelength for scan in [nm]:")
-                init_wavelength = float(input())
-                print("Enter final wavelength for scan in [nm]:")
-                final_wavelength = float(input())
-
+            # define variables
             self.final_wavelength = final_wavelength
             self.init_wavelength = init_wavelength
             self.single_scan_width = self.SigGen.calculate_scan_width()
-            print('The scan width in nm is:',self.single_scan_width)
+            print('The scan width in nm is:', self.single_scan_width)
             self.Laser.tlb_set_wavelength(self.init_wavelength)
-            time.sleep(5*WAIT_TIME)
 
             self.partial_spectrum = []
-            # jump between wavelengths and take traces
-            for i in np.arange(self.init_wavelength, self.final_wavelength, self.single_scan_width):
-                self.Laser.tlb_set_wavelength(i)
-                # added wait time to make sure the laser moved to it's new wavelength
-                time.sleep(WAIT_TIME)
-                # # first scan to calibrate the range
-                self.Scope.calibrate_range()
-                # take trace from the scope
-                self.partial_spectrum.append(self.Scope.get_trace()[CH_B] + self.Scope.calibrate_trace_avg_voltage*1000)
-                # patch the traces
-            self.total_spectrum = np.concatenate(self.partial_spectrum)
-        else:
-            self.directory = directory
-            self.partial_spectrum = []
-            self.total_spectrum = []
-            for i in range(1, 1500, 50):
-                filename = '20220824-0001_' + '{0:04}'.format(i) + '.csv'
-                full_path = self.directory+'//'+ filename
-                self.partial_spectrum.append(self.read_csv(full_path)[2:])
 
-            self.total_spectrum = np.concatenate(self.partial_spectrum)
-            self.total_spectrum = [item[1] for item in self.total_spectrum]
-        #turn into numpy array of floats
+
+
+    def get_wide_spectrum(self,parmeters_by_console):
+        if parmeters_by_console:
+            print("Enter initial wavelength for scan in [nm]:")
+            init_wavelength = float(input())
+            print("Enter final wavelength for scan in [nm]:")
+            final_wavelength = float(input())
+
+
+        time.sleep(WAIT_TIME)
+
+        # jump between wavelengths and take traces
+        for i in np.arange(self.init_wavelength, self.final_wavelength, self.single_scan_width):
+            self.Laser.tlb_set_wavelength(i)
+            # added wait time to make sure the laser moved to it's new wavelength
+            time.sleep(WAIT_TIME)
+            # # first scan to calibrate the range
+            self.Scope.calibrate_range()
+            # take trace from the scope
+            self.partial_spectrum.append(self.Scope.get_trace()[CH_B] + self.Scope.calibrate_trace_avg_voltage * 1000)
+            # patch the traces
+        self.total_spectrum = np.concatenate(self.partial_spectrum)
         self.total_spectrum = [float(item) for item in self.total_spectrum]
         self.total_spectrum = np.array(self.total_spectrum)
 
@@ -128,6 +123,8 @@ class TransmissionSpectrum:
 if __name__ == "__main__":
     try:
         o=TransmissionSpectrum(init_wavelength = 772,final_wavelength = 781,Python_Control = True, decimation = 1000)
+        # get spectrum
+        o.get_wide_spectrum(parmeters_by_console=True)
         o.plot_spectrum(o.total_spectrum)
         o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.decimated_total_spectrum,1000, 'Test')
         o.Pico.__del__()

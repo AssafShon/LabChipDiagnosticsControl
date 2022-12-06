@@ -24,7 +24,7 @@ class HeaterScan(TransmissionSpectrum):
         :return:
         '''
         # define variables
-        self.resonance_center = np.array(1, self.num_of_points_in_scan)
+        self.resonance_center = np.zeros(1, self.num_of_points_in_scan)
 
         self.Laser.tlb_set_wavelength(self.resonance_wavelength)
 
