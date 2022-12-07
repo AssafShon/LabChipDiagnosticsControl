@@ -42,5 +42,5 @@ class HeaterScan(TransmissionSpectrum):
 
 if __name__ == "__main__":
     o = HeaterScan()
-    o.scan_current_to_heater()
-    plt.plot(np.arange(0, o.max_current_scan, o.num_of_points_in_scan), o.resonance_center)
+    # o.scan_current_to_heater()
+    # plt.plot(np.arange(0, o.max_current_scan, o.num_of_points_in_scan), o.resonance_center)

@@ -39,6 +39,11 @@ class TransmissionSpectrum:
         :param Python_Control:
         :param decimation:
         '''
+        from BasicInstrumentsControl.PicoControl.PicoControl import PicoControl as Pico
+        from BasicInstrumentsControl.PicoControl.PicoControl import PicoScopeControl as Scope
+        from BasicInstrumentsControl.PicoControl.PicoControl import PicoSigGenControl as SigGen
+        from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
+
         if Python_Control:
             #connect to instruments
             self.Pico = Pico()
@@ -122,6 +127,7 @@ class TransmissionSpectrum:
 
 if __name__ == "__main__":
     try:
+        Python_Control=False
         o=TransmissionSpectrum(init_wavelength = 772,final_wavelength = 781,Python_Control = True, decimation = 1000)
         # get spectrum
         o.get_wide_spectrum(parmeters_by_console=True)
