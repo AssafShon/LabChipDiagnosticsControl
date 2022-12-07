@@ -32,7 +32,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             pass
         else:
             data = np.load(
-                r'C:\Users\asafs\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\20221123-103148Transmission_spectrum.npz')
+                r'C:\Users\asafs\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic\01A3\chip1\W1-09\20221207-104842Test.npz')
             self.total_spectrum = data['spectrum']
             self.scan_wavelengths = data['wavelengths']
 
@@ -62,6 +62,13 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.plot_lorenzians()
         plt.show()
 
+    def classify_peaks(self,fsr, num_of_rings):
+        '''
+        classify peaks to their fsr and ring number
+        :param fsr - the distance between peaks
+        :param num of rings - number of rings
+        :return:
+        '''
 
 
     def divide_to_different_modes(self,modes_width, division_width_between_modes):  # max_diff_between_widths_coeff=0.1):
@@ -71,16 +78,17 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         :return:
         '''
         # cl = cluster.HierarchicalClustering(modes_width, lambda x, y: abs(x - y))
-        # self.peaks_width_per_mode = cl.getlevel(max_diff_between_widths_coeff*np.mean(modes_width))
+        # self.peaks_width_per_mode = cl.getlevel(max_diff_between_widths_coeff*np.mean(modes_width)) fundamental
 
-        self.widths_mode_1 = [a for a in modes_width if a>division_width_between_modes]
-        self.widths_mode_2 = [a for a in modes_width if a<division_width_between_modes]
-        self.peaks_width_per_mode = [self.widths_mode_1,self.widths_mode_2]
+        self.widths_fundamental_mode = [a for a in modes_width if a<division_width_between_modes]
+        self.peaks_fund_mode_ind = [j for j, x in enumerate(modes_width) if x in self.widths_fundamental_mode]
+        self.peaks_fundamental_mode = [self.peaks[k] for k in self.peaks_fund_mode_ind]
 
-        self.peaks_per_mode = []
-        for i,_ in enumerate(self.peaks_width_per_mode):
-            peaks_width_ind = [j for j,x in enumerate(modes_width) if x in self.peaks_width_per_mode[i]]
-            self.peaks_per_mode.append([self.peaks[k] for k in peaks_width_ind])
+
+        self.widths_high_mode = [a for a in modes_width if a>division_width_between_modes]
+        self.peaks_high_mode_ind = [j for j, x in enumerate(modes_width) if x in self.widths_high_mode]
+        self.peaks_fundamental_mode = [self.peaks[k] for k in self.peaks_high_mode_ind]
+
 
     def plot_peaks(self):
         plt.figure()
