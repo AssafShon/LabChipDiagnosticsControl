@@ -13,19 +13,20 @@ C_light= 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
     def __init__(self, decimation=1, prominence=20, height=None, distance=None, rel_height=0.5,
-                 run_experiment=False,max_diff_between_widths_coeff = 0.25):
+                 run_experiment=False,division_width_between_modes = 2.5e-3):
         '''
 
         :param decimation: defines the decimation on the signal at the function smooth spectrum (takes each "decimation" index from the spectrum and then interpulates between the points)
         :param prominence: The prominence of a peak measures how much a peak stands out from the surrounding
                            baseline of the signal and is defined as the vertical distance between the peak and its lowest contour line.:
-        :param height: Required height of peaks. Either a number, None, an array matching x or a 2-element sequence of the former.
+        :param height: Required height of peaks. Either a number, None, an array matching x or a 2-element squence of thee former.
                        The first element is always interpreted as the minimal and the second, if supplied, as the maximal required height.
         :param distance: Required minimal horizontal distance (>= 1) in samples between neighbouring peaks. Smaller peaks are removed first until the condition is fulfilled for all remaining peaks.
         :param rel_height:Used for calculation of the peaks width, thus it is only used if width is given. See argument rel_height in peak_widths for a full description of its effects.
         :param run_experiment: bool between running an experiment via Analyze spectrum or just analyzing loaded data.
-        :param max_diff_between_widths_coeff:the maximum difference between widths of modes to be considered as a group of same mode
+        :param division_width_between_modes:the frequency whoch divides the modes [Thz]
         '''
+        #:param max_diff_between_widths_coeff:the maximum difference between widths of modes to be considered as a group of same mode
         if run_experiment:
             super().__init__()
             pass
@@ -52,7 +53,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.effective_kappa_all_resonances = self.calc_effective_kappa()
 
         #divide different modes
-        self.divide_to_different_modes(max_diff_between_widths_coeff = max_diff_between_widths_coeff,modes_width = self.effective_kappa_all_resonances)
+        self.divide_to_different_modes(division_width_between_modes = division_width_between_modes,modes_width = self.effective_kappa_all_resonances)
 
         #
 
@@ -63,14 +64,18 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
 
 
-    def divide_to_different_modes(self,modes_width, max_diff_between_widths_coeff=0.1):
+    def divide_to_different_modes(self,modes_width, division_width_between_modes):  # max_diff_between_widths_coeff=0.1):
         '''
         divides peaks into different modes depending on their width
         :param diff_condition_between_modes_width - defines the difference in mode width to be considered as the same mode
         :return:
         '''
-        cl = cluster.HierarchicalClustering(modes_width, lambda x, y: abs(x - y))
-        self.peaks_width_per_mode = cl.getlevel(max_diff_between_widths_coeff*np.mean(modes_width))
+        # cl = cluster.HierarchicalClustering(modes_width, lambda x, y: abs(x - y))
+        # self.peaks_width_per_mode = cl.getlevel(max_diff_between_widths_coeff*np.mean(modes_width))
+
+        self.widths_mode_1 = [a for a in modes_width if a>division_width_between_modes]
+        self.widths_mode_2 = [a for a in modes_width if a<division_width_between_modes]
+        self.peaks_width_per_mode = [self.widths_mode_1,self.widths_mode_2]
 
         self.peaks_per_mode = []
         for i,_ in enumerate(self.peaks_width_per_mode):
@@ -148,14 +153,14 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             # initial guess
             kappa_guess = self.scan_freqs[self.peaks_width[2][i].astype(int)]-self.scan_freqs[self.peaks_width[3][i].astype(int)] # a guess for the aprrox width of the lorenzian [THz]
             x_dc_guess = self.scan_freqs[self.peaks[i]] # a guess for the central frequency [THz]
-            y_dc_guess = np.sqrt(self.peaks_properties["prominences"][i])
+            y_dc_guess = self.peaks_properties["prominences"][i]+self.interpolated_spectrum[self.peaks[i]]
             initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,y_dc_guess,0])
 
             x_data = self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i])):(self.peaks[i] + int(self.peaks_width[0][i]))]
             y_data =  self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i])):(self.peaks[i] + int(self.peaks_width[0][i]))]
             popt, pcov = curve_fit(self.Lorenzian, x_data,
                                    y_data,
-                               bounds=([0,0,0,0,0,0], [1e3, 1e3,1e5, 1e5,1e8,1e-6]), p0=initial_guess)
+                               bounds=([0,0,0,y_dc_guess*0.9,0,0], [1e3, 1e3,1e5, y_dc_guess*1.1,1e8,1e-6]), p0=initial_guess)
             fit_res.append(popt)
         return fit_res
 
@@ -173,7 +178,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         return freqs
 
     def Lorenzian(self,x, kex, ki, x_dc, y_dc,amp,h):
-        return (abs(y_dc - amp * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2)
+        return (y_dc - abs(amp * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2)
 
 if __name__ == "__main__":
     o=AnalyzeSpectrum(decimation=10)

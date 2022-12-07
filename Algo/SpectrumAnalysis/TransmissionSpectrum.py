@@ -17,10 +17,6 @@ import time
 from scipy import signal
 import os
 
-from BasicInstrumentsControl.PicoControl.PicoControl import PicoControl as Pico
-from BasicInstrumentsControl.PicoControl.PicoControl import PicoScopeControl as Scope
-from BasicInstrumentsControl.PicoControl.PicoControl import PicoSigGenControl as SigGen
-from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
 
 # PARAMETERS
 WAIT_TIME = 1
@@ -30,7 +26,7 @@ CH_B = 1
 
 
 class TransmissionSpectrum:
-    def __init__(self,directory='20220824-0002',init_wavelength = 772,final_wavelength = 781,Python_Control = True):
+    def __init__(self,init_wavelength = 772,final_wavelength = 781,Python_Control = True):
         '''
 
         :param directory: directory to load traces (relevant when Python_Control=False)
