@@ -7,13 +7,19 @@ from scipy.optimize import curve_fit
 from TransmissionSpectrum import TransmissionSpectrum
 import math
 import cluster
+import os
+import time
+import csv
 
 #parameters
 C_light= 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
-    def __init__(self, decimation=1, prominence=20, height=None, distance=None, rel_height=0.5,
-                 run_experiment=False,division_width_between_modes = 2.5e-3):
+    def __init__(self, decimation=1, prominence=40, height=None, distance=None, rel_height=0.5,
+                 run_experiment=False,division_width_between_modes = 4.0e-3
+                 ,file_root = r'C:\Users\User\Documents\employment\qs\spectrum_analysis\20221208-174722Test.npz',
+                 save_root = r'C:\Users\User\Documents\employment\qs\spectrum_analysis',
+                 saved_filename = 'analysis_results'):
         '''
 
         :param decimation: defines the decimation on the signal at the function smooth spectrum (takes each "decimation" index from the spectrum and then interpulates between the points)
@@ -31,8 +37,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             super().__init__()
             pass
         else:
-            data = np.load(
-                r'C:\Users\asafs\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic\01A3\chip1\W1-09\20221207-104842Test.npz')
+            data = np.load(file_root)
             self.total_spectrum = data['spectrum']
             self.scan_wavelengths = data['wavelengths']
 
@@ -44,23 +49,44 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         # find peaks and divide to different modes
         self.peaks_width,self.peaks,self.peaks_properties = self.find_peaks_in_spectrum(prominence,height,distance,rel_height,spectrum=self.interpolated_spectrum)
+        self.peaks_width_in_Thz = [self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]/2))] -
+                                   self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i]/2))] for i in range(len(self.peaks))]
+
+        #divide different modes
+        self.divide_to_different_modes(division_width_between_modes = division_width_between_modes,modes_width =self.peaks_width_in_Thz )
 
         #plot figure with peaks
         self.plot_peaks()
 
         #fit lorenzians
-        self.fit_res = self.fit_lorenzians()
-        self.effective_kappa_all_resonances = self.calc_effective_kappa()
-
-        #divide different modes
-        self.divide_to_different_modes(division_width_between_modes = division_width_between_modes,modes_width = self.effective_kappa_all_resonances)
+        [self.fit_res,self.fit_cov_params] = self.fit_lorenzians()
 
         #
+        self.effective_kappa_all_resonances = self.calc_effective_kappa_and_h()
 
 
         #plot lorenzians
         self.plot_lorenzians()
         plt.show()
+
+        #get parameters and save them
+        self.get_analysis_spectrum_data()
+        self.save_analyzed_data(dist_root = save_root, filename = saved_filename)
+
+    def save_analyzed_data(self,dist_root,filename):
+        timestr = time.strftime("%Y%m%d-%H%M%S")
+        # create directory
+        directory_path = os.path.join(dist_root,timestr)
+        os.mkdir(directory_path )
+        # save figure
+        plt.savefig(os.path.join(directory_path,timestr+filename+'.png'))
+        #save data as csv
+        filename_csv = os.path.join(directory_path,timestr+filename+'.csv')
+        with open(filename_csv, 'w') as f:
+            for key in self.analysis_spectrum_data.keys():
+                f.write("%s,%s\n"%(key,self.analysis_spectrum_data[key]))        #save python data
+        np.savez(os.path.join(directory_path,timestr+filename+'.npz'), data = self.analysis_spectrum_data)
+
 
     def classify_peaks(self,fsr, num_of_rings):
         '''
@@ -87,7 +113,9 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         self.widths_high_mode = [a for a in modes_width if a>division_width_between_modes]
         self.peaks_high_mode_ind = [j for j, x in enumerate(modes_width) if x in self.widths_high_mode]
-        self.peaks_fundamental_mode = [self.peaks[k] for k in self.peaks_high_mode_ind]
+        self.peaks_high_mode = [self.peaks[k] for k in self.peaks_high_mode_ind]
+
+        self.peaks_per_mode = [self.peaks_fundamental_mode,self.peaks_high_mode]
 
 
     def plot_peaks(self):
@@ -108,7 +136,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             plt.plot(self.scan_freqs[
                      (self.peaks[i] - int(self.peaks_width[0][i])):(self.peaks[i] + int(self.peaks_width[0][i]))],
                      self.Lorenzian(self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i])):(
-                                 self.peaks[i] + int(self.peaks_width[0][i]))], *self.fit_res[i]), 'r-')
+                             self.peaks[i] + int(self.peaks_width[0][i]))], *self.fit_res[i]), 'r-')
 
     # needed to be class method so it can be called without generating an instance
     @classmethod
@@ -155,28 +183,49 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         return peaks_width, peaks, peaks_properties
 
     def fit_lorenzians(self):
+        '''
+
+        :return: fit_quality - the standard deviation errors on the parameters
+        '''
         #the frequencies of the scan obtained from wavelengths
-        fit_res = []
+        fit_parameters = []
+        fit_quality = []
         for i in range(len(self.peaks)):
             # initial guess
             kappa_guess = self.scan_freqs[self.peaks_width[2][i].astype(int)]-self.scan_freqs[self.peaks_width[3][i].astype(int)] # a guess for the aprrox width of the lorenzian [THz]
             x_dc_guess = self.scan_freqs[self.peaks[i]] # a guess for the central frequency [THz]
             y_dc_guess = self.peaks_properties["prominences"][i]+self.interpolated_spectrum[self.peaks[i]]
-            initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,y_dc_guess,0])
+            amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
+            initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,amp_guess,0])
 
             x_data = self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i])):(self.peaks[i] + int(self.peaks_width[0][i]))]
             y_data =  self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i])):(self.peaks[i] + int(self.peaks_width[0][i]))]
             popt, pcov = curve_fit(self.Lorenzian, x_data,
                                    y_data,
-                               bounds=([0,0,0,y_dc_guess*0.9,0,0], [1e3, 1e3,1e5, y_dc_guess*1.1,1e8,1e-6]), p0=initial_guess)
-            fit_res.append(popt)
-        return fit_res
+                                   bounds=([0,0,0,y_dc_guess*0.9,amp_guess/3,0], [1e3, 1e3,1e5, y_dc_guess*1.1,amp_guess*3,1]), p0=initial_guess)
+            fit_parameters.append(popt)
+            fit_quality.append(np.sqrt(np.diag(pcov)))
+        return [fit_parameters, fit_quality]
 
-    def calc_effective_kappa(self):
+    def get_analysis_spectrum_data(self):
+        # generates a list of resonances with all parameters
+        self.analysis_spectrum_data ={}
+        self.analysis_spectrum_data['mode'] = ["fundamental" if i in self.peaks_fund_mode_ind else "high"
+                                               for i in range(len(self.peaks))]
+        self.analysis_spectrum_data['peak_freq'] = self.scan_freqs[self.peaks].tolist()
+        self.analysis_spectrum_data['kappa_ex'] = [self.fit_res[i][0] for i in range(len(self.fit_res))]
+        self.analysis_spectrum_data['kappa_i'] = [self.fit_res[i][1] for i in range(len(self.fit_res))]
+        self.analysis_spectrum_data['h'] = [self.fit_res[i][5] for i in range(len(self.fit_res))]
+        self.analysis_spectrum_data['standard deviation of parameters'] = [self.fit_cov_params[i] for i in range(len(self.fit_cov_params))]
+
+    def calc_effective_kappa_and_h(self):
+        # returns the geometric average of kappa i, kappa ex and h
         effective_kappa= []
         for i in range(len(self.fit_res)):
-            effective_kappa.append(np.sqrt(self.fit_res[i][0] ** 2 + self.fit_res[i][1] ** 2))
+            effective_kappa.append(np.sqrt(self.fit_res[i][0] ** 2 + self.fit_res[i][1] ** 2 + self.fit_res[i][5] ** 2))
         return effective_kappa
+
+
     def get_scan_freqs(self):
         '''
 
@@ -186,7 +235,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         return freqs
 
     def Lorenzian(self,x, kex, ki, x_dc, y_dc,amp,h):
-        return (y_dc - abs(amp * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2)
+        return (y_dc - amp *abs( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2)
 
 if __name__ == "__main__":
     o=AnalyzeSpectrum(decimation=10)

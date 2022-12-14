@@ -9,7 +9,7 @@
       <sourceFolder url="file://$MODULE_DIR$/BasicInstrumentsControl/StepperControl/thorlabs_kinesis" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/Algo/SpectrumAnalysis" isTestSource="false" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.9 (LabChipDiagnosticsControl)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.8 (venv)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
 </module>
