@@ -216,7 +216,9 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.analysis_spectrum_data['kappa_ex'] = [self.fit_res[i][0] for i in range(len(self.fit_res))]
         self.analysis_spectrum_data['kappa_i'] = [self.fit_res[i][1] for i in range(len(self.fit_res))]
         self.analysis_spectrum_data['h'] = [self.fit_res[i][5] for i in range(len(self.fit_res))]
-        self.analysis_spectrum_data['standard deviation of parameters'] = [self.fit_cov_params[i] for i in range(len(self.fit_cov_params))]
+        # self.analysis_spectrum_data['standard deviation of kappa_ex'] = [self.fit_cov_params[i][0] for i in range(len(self.fit_cov_params))]
+        # self.analysis_spectrum_data['standard deviation of kappa_i'] = [self.fit_cov_params[i][1] for i in range(len(self.fit_cov_params))]
+        # self.analysis_spectrum_data['standard deviation of h'] = [self.fit_cov_params[i][5] for i in range(len(self.fit_cov_params))]
 
     def calc_effective_kappa_and_h(self):
         # returns the geometric average of kappa i, kappa ex and h
@@ -235,7 +237,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         return freqs
 
     def Lorenzian(self,x, kex, ki, x_dc, y_dc,amp,h):
-        return (y_dc - amp *abs( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2)
+        return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
 
 if __name__ == "__main__":
-    o=AnalyzeSpectrum(decimation=10)
+    o=AnalyzeSpectrum(decimation=5)
