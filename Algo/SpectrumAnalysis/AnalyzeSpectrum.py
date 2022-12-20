@@ -5,8 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 from TransmissionSpectrum import TransmissionSpectrum
-import math
-import cluster
 import os
 import time
 import csv
@@ -16,9 +14,9 @@ C_light= 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
     def __init__(self, decimation=1, prominence=40, height=None, distance=None, rel_height=0.5,
-                 run_experiment=False,division_width_between_modes = 4.0e-3
-                 ,file_root = r'C:\Users\User\Documents\employment\qs\spectrum_analysis\20221208-174722Test.npz',
-                 save_root = r'C:\Users\User\Documents\employment\qs\spectrum_analysis',
+                 run_experiment=False, division_width_between_modes = 4.0e-3
+                 , file_root =r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission'
+                 , load_filename = r'\20221220-152709Test.npz',
                  saved_filename = 'analysis_results'):
         '''
 
@@ -33,11 +31,24 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         :param division_width_between_modes:the frequency whoch divides the modes [Thz]
         '''
         #:param max_diff_between_widths_coeff:the maximum difference between widths of modes to be considered as a group of same mode
-        if run_experiment:
+        print("Do you want to run a frequncy scan? (True/False)")
+        run_experiment = input()
+        if not run_experiment=='True':
+            print("what is the full path of your npz file?")
+            file_root = input()
+            print("what is the name of the npz file? (such as: filename.npz)")
+            load_filename = '\\'+input()
+
+        if run_experiment=='True':
             super().__init__()
-            pass
+            self.get_wide_spectrum(parmeters_by_console=True)
+            self.plot_spectrum(self.total_spectrum)
+            self.save_figure_and_data(file_root,
+                                   self.total_spectrum, 1000, 'Test')
+            self.Pico.__del__()
+            self.Laser.__del__()
         else:
-            data = np.load(file_root)
+            data = np.load(os.path.join(file_root + load_filename))
             self.total_spectrum = data['spectrum']
             self.scan_wavelengths = data['wavelengths']
 
@@ -71,13 +82,18 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         #get parameters and save them
         self.get_analysis_spectrum_data()
-        self.save_analyzed_data(dist_root = save_root, filename = saved_filename)
-
+        if run_experiment=='True':
+            self.save_analyzed_data(dist_root=self.transmission_directory_path, filename=saved_filename)
+        else:
+            self.save_analyzed_data(dist_root=file_root, filename=saved_filename)
     def save_analyzed_data(self,dist_root,filename):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         # create directory
-        directory_path = os.path.join(dist_root,timestr)
-        os.mkdir(directory_path )
+        analysis_path = dist_root+r'\analysis'
+        if not os.path.isdir(analysis_path):
+            os.mkdir(analysis_path)
+        directory_path = os.path.join(analysis_path,timestr)
+        os.mkdir(directory_path)
         # save figure
         plt.savefig(os.path.join(directory_path,timestr+filename+'.png'))
         #save data as csv
@@ -240,4 +256,4 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
 
 if __name__ == "__main__":
-    o=AnalyzeSpectrum(decimation=5)
+    o=AnalyzeSpectrum(decimation=5,run_experiment=True)
