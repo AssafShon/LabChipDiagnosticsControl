@@ -13,6 +13,7 @@ class HeaterScan(TransmissionSpectrum):
     def __init__(self, resonance_wavelength=776, max_current_scan=5, num_of_points_in_scan=5):
         super().__init__()
         self.PowerSupply = PowerSupply()
+
         self.resonance_wavelength = resonance_wavelength
         self.max_current_scan = max_current_scan
         self.num_of_points_in_scan = num_of_points_in_scan
