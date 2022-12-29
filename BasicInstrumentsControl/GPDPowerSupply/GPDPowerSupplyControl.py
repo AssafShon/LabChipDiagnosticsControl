@@ -13,6 +13,9 @@ class PowerSupply():
         self.channel = Channel
         self.current_lim = current_lim
 
+    def __del__(self):
+        self.gpd.close()
+
     def get_voltage_to_current(self):
         '''
         creates a figure of voltage to current up to 10 mA
@@ -46,7 +49,7 @@ class PowerSupply():
         ''''
         estimates average resistance bymeasuring the voltage for 3 current points and
         taking the average.
-        :param current_setpoints: a list of currentsto take average on  [mA]
+        :param current_setpoints: a list of currents to take average on  [mA]
         '''
         self.gpd.setVoltage(self.channel, 30)
         voltage_setpoints = np.zeros(len(current_setpoints))
@@ -75,3 +78,5 @@ class PowerSupply():
 if __name__ == "__main__":
     o = PowerSupply()
     o.gpd.enableOutput()
+    o.estimate_avg_resistance()
+

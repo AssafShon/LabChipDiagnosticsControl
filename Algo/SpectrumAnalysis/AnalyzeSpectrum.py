@@ -33,12 +33,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         #:param max_diff_between_widths_coeff:the maximum difference between widths of modes to be considered as a group of same mode
         print("Do you want to run a frequncy scan? (True/False)")
         run_experiment = input()
-        if not run_experiment=='True':
-            print("what is the full path of your npz file?")
-            file_root = input()
-            print("what is the name of the npz file? (such as: filename.npz)")
-            load_filename = '\\'+input()
-
         if run_experiment=='True':
             super().__init__()
             self.get_wide_spectrum(parmeters_by_console=True)
@@ -48,6 +42,11 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             self.Pico.__del__()
             self.Laser.__del__()
         else:
+            print("what is the full path of your npz file?")
+            file_root = input()
+            print("what is the name of the npz file? (such as: filename.npz)")
+            load_filename = '\\'+input()
+
             data = np.load(os.path.join(file_root + load_filename))
             self.total_spectrum = data['spectrum']
             self.scan_wavelengths = data['wavelengths']
