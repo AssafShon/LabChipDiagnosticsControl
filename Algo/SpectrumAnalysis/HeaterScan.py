@@ -1,8 +1,7 @@
 from TransmissionSpectrum import TransmissionSpectrum
 import numpy as np
 import time
-import matplotlib.pyplot as plt
-from BasicInstrumentsControl.GPDPowerSupply.GPDPowerSupplyControl import PowerSupply
+from BasicInstrumentsControl.KeithleyPwrSupplyControl import KeithleyPwrSupplyControl as PowerSupply
 # from AnalyzeSpectrum import find_peaks_in_spectrum, smooth_spectrum
 from AnalyzeSpectrum import AnalyzeSpectrum
 

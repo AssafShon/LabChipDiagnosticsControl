@@ -3,5 +3,6 @@
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/BasicInstrumentsControl/GPDPowerSupply/PyGPD3303S" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/BasicInstrumentsControl/OLD/GPDPowerSupply/PyGPD3303S" vcs="Git" />
   </component>
 </project>

@@ -105,7 +105,7 @@ class TransmissionSpectrum:
 
     def plot_spectrum(self, Y):
         plt.figure()
-        plt.title('Tansmission Spectrum')
+        plt.title('Transmission Spectrum')
         plt.xlabel('Wavelength[nm]')
         plt.ylabel('Voltage[mV]')
         plt.grid(True)
@@ -116,7 +116,7 @@ class TransmissionSpectrum:
         timestr = time.strftime("%Y%m%d-%H%M%S")
         # create directory
         self.transmission_directory_path = os.path.join(dist_root,timestr)
-        os.mkdir(self.transmission_directory_path )
+        os.mkdir(self.transmission_directory_path)
         # save figure
         plt.savefig(os.path.join(self.transmission_directory_path,timestr+filename+'.png'))
         #save data as csv

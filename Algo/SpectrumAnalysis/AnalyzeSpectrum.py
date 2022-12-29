@@ -71,7 +71,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         #fit lorenzians
         [self.fit_res,self.fit_cov_params] = self.fit_lorenzians()
-
         #
         self.effective_kappa_all_resonances = self.calc_effective_kappa_and_h()
 

@@ -145,7 +145,7 @@ class PicoScopeControl():
 
     def get_trace(self):
         '''
-        calls for trace from the pico, triggered byupper and lower thrshold to handle noise in trigger channel.
+        calls for trace from the pico, triggered by upper and lower threshold to handle noise in trigger channel.
         :return:
         '''
         # Set up single trigger

@@ -8,4 +8,4 @@ def plot_figure(X,Y,xlabel,ylabel,title):
     plt.ylabel(ylabel)
     plt.title(title)
     plt.grid(True)
-    plt.show()
+
