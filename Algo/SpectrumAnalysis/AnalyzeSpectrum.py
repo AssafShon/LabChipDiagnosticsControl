@@ -1,4 +1,5 @@
 
+import pandas as pd
 from scipy.interpolate import CubicSpline
 from scipy.signal import peak_widths, find_peaks
 import numpy as np
@@ -101,9 +102,9 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         plt.savefig(os.path.join(directory_path,timestr+filename+'.png'))
         #save data as csv
         filename_csv = os.path.join(directory_path,timestr+filename+'.csv')
-        with open(filename_csv, 'w') as f:
-            for key in self.analysis_spectrum_data.keys():
-                f.write("%s,%s\n"%(key,self.analysis_spectrum_data[key]))        #save python data
+
+        df = pd.DataFrame(self.analysis_spectrum_data)
+        df.to_csv(filename_csv, index=False, header=True)
         np.savez(os.path.join(directory_path,timestr+filename+'.npz'), data = self.analysis_spectrum_data)
 
 
@@ -286,10 +287,10 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.analysis_spectrum_data ={}
         self.analysis_spectrum_data['mode'] = ["fundamental" if i in self.peaks_fund_mode_ind else "high"
                                                for i in range(len(self.peaks))]
-        self.analysis_spectrum_data['peak_freq'] = self.scan_freqs[self.peaks].tolist()
-        self.analysis_spectrum_data['kappa_ex'] = [self.fit_res[i][0] for i in range(len(self.fit_res))]
-        self.analysis_spectrum_data['kappa_i'] = [self.fit_res[i][1] for i in range(len(self.fit_res))]
-        self.analysis_spectrum_data['h'] = [self.fit_res[i][5] for i in range(len(self.fit_res))]
+        self.analysis_spectrum_data['peak_freq[THz]'] = self.scan_freqs[self.peaks].tolist()
+        self.analysis_spectrum_data['kappa_ex[GHz]'] = [self.fit_res[i][0]*1e3 for i in range(len(self.fit_res))]
+        self.analysis_spectrum_data['kappa_i[GHz]'] = [self.fit_res[i][1]*1e3 for i in range(len(self.fit_res))]
+        self.analysis_spectrum_data['h[GHz]'] = [self.fit_res[i][5]*1e3 for i in range(len(self.fit_res))]
         # self.analysis_spectrum_data['standard deviation of kappa_ex'] = [self.fit_cov_params[i][0] for i in range(len(self.fit_cov_params))]
         # self.analysis_spectrum_data['standard deviation of kappa_i'] = [self.fit_cov_params[i][1] for i in range(len(self.fit_cov_params))]
         # self.analysis_spectrum_data['standard deviation of h'] = [self.fit_cov_params[i][5] for i in range(len(self.fit_cov_params))]
