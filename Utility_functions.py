@@ -10,6 +10,7 @@ def plot_figure(X,Y,xlabel,ylabel,title):
     plt.grid(True)
     plt.show()
 
+
 class bcolors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'

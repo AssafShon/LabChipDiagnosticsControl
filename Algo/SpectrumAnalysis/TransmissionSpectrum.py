@@ -26,7 +26,7 @@ CH_B = 1
 
 
 class TransmissionSpectrum:
-    def __init__(self,init_wavelength = 772,final_wavelength = 781,Python_Control = True):
+    def __init__(self,init_wavelength = 772,final_wavelength = 772.3,Python_Control = True):
         '''
 
         :param directory: directory to load traces (relevant when Python_Control=False)
@@ -103,13 +103,13 @@ class TransmissionSpectrum:
         b, a = signal.butter(filter_order, filter_critical_freq, btype=filter_type)
         return signal.filtfilt(b, a, self.total_spectrum)
 
-    def plot_spectrum(self, Y):
+    def plot_spectrum(self, Y,decimation):
         plt.figure()
         plt.title('Transmission Spectrum')
         plt.xlabel('Wavelength[nm]')
         plt.ylabel('Voltage[mV]')
         plt.grid(True)
-        plt.plot(self.scan_wavelengths, Y,'r')
+        plt.plot(self.scan_wavelengths[0:-1:decimation], Y[0:-1:decimation],'r')
         plt.show()
 
     def save_figure_and_data(self,dist_root,spectrum_data,decimation,filename = 'Transmission_spectrum'):
@@ -130,8 +130,8 @@ if __name__ == "__main__":
         o = TransmissionSpectrum(init_wavelength = 772,final_wavelength = 781,Python_Control = True)
         # get spectrum
         o.get_wide_spectrum(parmeters_by_console=True)
-        o.plot_spectrum(o.total_spectrum)
-        o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum,1000, 'Test')
+        o.plot_spectrum(o.total_spectrum,decimation=1000)
+        o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum,10000, 'Test')
         o.Pico.__del__()
         o.Laser.__del__()
     except:

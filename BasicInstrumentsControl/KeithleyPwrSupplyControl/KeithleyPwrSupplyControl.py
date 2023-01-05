@@ -7,14 +7,13 @@ import matplotlib.pyplot as plt
 
 
 class KeithleyPwrSupplyControl():
-    def __init__(self,channel=1, current_lim=10):
+    def __init__(self,channel=1, current_lim=10e-3):
         self.rm = pyvisa.ResourceManager()
         self.keithley = self.KEI2231_Connect(rsrcString='ASRL4::INSTR',getIdStr=1, timeout=20000, doRst=1)
         self.channel = channel
         self.current_lim = current_lim
 
-    def __del__(self):
-        self.Disconnect()
+
 
     def get_voltage_to_current(self):
         '''
@@ -165,8 +164,7 @@ if __name__ == "__main__":
     o = KeithleyPwrSupplyControl()
     o.get_voltage_to_current()
     plt.show()
-    a=1
-
+    o.Disconnect()
 
 #
 #

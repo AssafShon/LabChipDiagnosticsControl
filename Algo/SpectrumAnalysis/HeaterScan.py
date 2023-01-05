@@ -1,24 +1,31 @@
 from TransmissionSpectrum import TransmissionSpectrum
 import numpy as np
 import time
-from BasicInstrumentsControl.KeithleyPwrSupplyControl import KeithleyPwrSupplyControl as PowerSupply
+from BasicInstrumentsControl.KeithleyPwrSupplyControl.KeithleyPwrSupplyControl import KeithleyPwrSupplyControl as PowerSupply
 from AnalyzeSpectrum import AnalyzeSpectrum
 
 WAIT_TIME = 0.1
 
 
 class HeaterScan(TransmissionSpectrum):
-    def __init__(self, resonance_wavelength=776, max_current_scan=5, num_of_points_in_scan=5, typ_noise_in_freq = 3e-3,
+    def __init__(self, max_current_scan=10e-3, num_of_points_in_scan=5, typ_noise_in_freq = 3e-3,
                  decimation=1000,division_width_between_modes = 5.0e-3):
         super().__init__()
         self.PowerSupply = PowerSupply()
 
-        self.resonance_wavelength = resonance_wavelength
-        self.max_current_scan = max_current_scan
+        self.max_current_scan = max_current_scan # [A]
         self.num_of_points_in_scan = num_of_points_in_scan
         self.typ_noise_in_freq = typ_noise_in_freq
         self.decimation = decimation
         self.division_width_between_modes = division_width_between_modes
+
+        self.PowerSupply.SetVoltage(30) # so voltage won't restrict the current
+        self.PowerSupply.OutputState(1)
+
+        self.scan_current_to_heater()
+
+        self.PowerSupply.OutputState(0)
+        self.PowerSupply.Disconnect()
 
     def scan_current_to_heater(self):
         '''
@@ -27,48 +34,46 @@ class HeaterScan(TransmissionSpectrum):
         :return:
         '''
         # define variables
-        self.resonance_center = np.zeros(1, self.num_of_points_in_scan)
         self.all_peaks = []
-
-        self.Laser.tlb_set_wavelength(self.resonance_wavelength)
 
         for idx, current in enumerate(np.arange(0, self.max_current_scan, self.num_of_points_in_scan)):
             # set current to power supply
-            self.PowerSupply.set_current(current)   # set current by voltage
+            self.PowerSupply.SetCurrent(current)   # set current by voltage
             time.sleep(WAIT_TIME)
 
             # get trace from scope and detect resonance center
-            spectrum = self.Scope.get_trace()
-            peaks = self.analyze_spectrum(spectrum,idx)
-            self.all_peaks.append(peaks)
+            if idx==0:
+                self.get_wide_spectrum(parmeters_by_console=True)
+                # self.get_wide_spectrum(parmeters_by_console=True)
+            else:
+                self.get_wide_spectrum(parmeters_by_console=False)
+            peaks = self.analyze_spectrum(self.total_spectrum,idx)
+            self.all_peaks.append(self.total_spectrum[peaks])
 
-            self.heated_peak = self.find_heated_peak()
-
-
-            self.resonance_center[idx]
+        self.heated_peak = self.find_heated_peak()
 
     def analyze_spectrum(self,spectrum,i):
         # convert from nm to THz
-        self.scan_freqs = AnalyzeSpectrum.get_scan_freqs()
+        self.scan_freqs = AnalyzeSpectrum.get_scan_freqs(scan_wavelengths=self.scan_wavelengths)
 
         # smooth spectrum
         interpolated_spectrum = AnalyzeSpectrum.smooth_spectrum(decimation=self.decimation, spectrum=spectrum,
                                                                 wavelengths=self.scan_wavelengths)
-        peaks_width, peaks, peaks_properties = AnalyzeSpectrum.find_peaks_in_spectrum(interpolated_spectrum)
+        peaks_width, peaks, peaks_properties = AnalyzeSpectrum.find_peaks_in_spectrum( prominence=15, height=None, distance=None, rel_height=0.5,spectrum=interpolated_spectrum)
         peaks_width_in_Thz = [self.scan_freqs[( peaks[i] - int(peaks_width[0][i] / 2))] -
                                    self.scan_freqs[(peaks[i] + int(peaks_width[0][i] / 2))] for i in
                                    range(len(peaks))]
 
         # divide different modes
-        fundamental_mode,high_mode = AnalyzeSpectrum.divide_to_different_modes(
+        fundamental_mode,high_mode = AnalyzeSpectrum.divide_to_different_modes(peaks=peaks,
             division_width_between_modes=self.division_width_between_modes,
                                        modes_width=peaks_width_in_Thz)
         [peaks_fundamental_mode, peaks_high_mode] = [fundamental_mode[1], high_mode[1]]
         self.peaks_per_mode = [peaks_fundamental_mode, peaks_high_mode]
         AnalyzeSpectrum.plot_peaks(scan_freqs=self.scan_freqs,interpolated_spectrum=interpolated_spectrum,
                                    peaks_per_mode=self.peaks_per_mode)
-        AnalyzeSpectrum.save_analyzed_data(dist_root=r'C:\Users\asafs\qs-labs\R&D - Lab\Chip Tester\Heater_Scan',
-                                           filename=r'Heater_Scan'+i
+        AnalyzeSpectrum.save_analyzed_data(dist_root=r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\HeaterScan',
+                                           filename=r'Heater_Scan'+str(i)
                                 , analysis_spectrum_parameters=None,
                                 spectrum_data=[interpolated_spectrum, self.scan_freqs])
         return peaks_fundamental_mode
@@ -84,7 +89,7 @@ class HeaterScan(TransmissionSpectrum):
         '''
         freqs_range = (self.scan_freqs[0],self.scan_freqs[-1])
         freqs_range_len = self.scan_freqs[-1] - self.scan_freqs[0]
-        num_of_bins = freqs_range_len/self.typ_noise_in_freq
+        num_of_bins = int(freqs_range_len/self.typ_noise_in_freq) # the bin width will be approx. typ_noise_in_freq
         binned_peaks = np.zeros((len(self.all_peaks),num_of_bins))
         for i in range(len(self.all_peaks)):
             binned_peaks[i] = np.histogram(a=self.all_peaks[i], bins=num_of_bins,range=freqs_range)[0] # histogram bin - init<=data<final
@@ -112,5 +117,4 @@ class HeaterScan(TransmissionSpectrum):
 
 if __name__ == "__main__":
     o = HeaterScan()
-    o.scan_current_to_heater()
     # plt.plot(np.arange(0, o.max_current_scan, o.num_of_points_in_scan), o.resonance_center)

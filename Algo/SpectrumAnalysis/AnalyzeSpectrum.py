@@ -53,7 +53,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.scan_wavelengths = data['wavelengths']
 
         # convert from nm to THz
-        self.scan_freqs = self.get_scan_freqs()
+        self.scan_freqs = self.get_scan_freqs(self.scan_wavelengths)
 
         # smooth spectrum
         self.interpolated_spectrum = self.smooth_spectrum(decimation, spectrum =self.total_spectrum, wavelengths=self.scan_wavelengths)
@@ -101,6 +101,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                                     spectrum_data=[self.interpolated_spectrum, self.scan_freqs, self.fit_res,
                                                    self.peaks, self.peaks_width])
 
+    @classmethod
     def save_analyzed_data(self,dist_root,filename,analysis_spectrum_parameters, spectrum_data):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         # create directory
@@ -188,6 +189,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 classified_peaks[peak_group].append((peak_group_relative_dist[peak_group][peak[0][0]],i))
         return classified_peaks
 
+    @classmethod
     def divide_to_different_modes(self,peaks,modes_width, division_width_between_modes):  # max_diff_between_widths_coeff=0.1):
         '''
         divides peaks into different modes depending on their width
@@ -208,12 +210,12 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         high_mode = [widths_high_mode, peaks_high_mode, peaks_high_mode_ind]
 
         return fundamental_mode,high_mode
-
+    @classmethod
     def plot_peaks(self,scan_freqs,interpolated_spectrum,peaks_per_mode):
         plt.figure()
         plt.plot(scan_freqs, interpolated_spectrum)
         for i in range(len(peaks_per_mode)):
-            plt.plot(self.scan_freqs[peaks_per_mode[i]],interpolated_spectrum[peaks_per_mode[i]], 'o')
+            plt.plot(scan_freqs[peaks_per_mode[i]],interpolated_spectrum[peaks_per_mode[i]], 'o')
 
     def plot_lorenzians(self):
         plt.figure()
@@ -315,14 +317,14 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             effective_kappa.append(np.sqrt(self.fit_res[i][0] ** 2 + self.fit_res[i][1] ** 2 + self.fit_res[i][5] ** 2))
         return effective_kappa
 
-
-    def get_scan_freqs(self):
+    @classmethod
+    def get_scan_freqs(self,scan_wavelengths):
         '''
 
         :return: freqs - in Thz
         '''
-        freqs = (C_light* 1e-12) / (self.scan_wavelengths * 1e-9)
-        freqs = freqs.reverse()
+        freqs = (C_light* 1e-12) / (scan_wavelengths * 1e-9)
+        freqs = np.flip(freqs)
         return freqs
 
     def Lorenzian(self,x, kex, ki, x_dc, y_dc,amp,h):
