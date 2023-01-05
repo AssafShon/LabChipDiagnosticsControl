@@ -8,16 +8,17 @@ from TransmissionSpectrum import TransmissionSpectrum
 import os
 import time
 import csv
+from Utility_functions import bcolors
 
 #parameters
 C_light= 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
     def __init__(self, decimation=1, prominence=40, height=None, distance=None, rel_height=0.5,
-                 run_experiment=False, division_width_between_modes = 4.0e-3
-                 , file_root =r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission'
+                 run_experiment=False, division_width_between_modes = 15.0e-3
+                 , file_root =r'C:\Users\asafs\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic\01A3\chip4\W1-03'
                  , load_filename = r'\20221220-152709Test.npz',
-                 saved_filename = 'analysis_results'):
+                 saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
         '''
 
         :param decimation: defines the decimation on the signal at the function smooth spectrum (takes each "decimation" index from the spectrum and then interpulates between the points)
@@ -31,26 +32,25 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         :param division_width_between_modes:the frequency whoch divides the modes [Thz]
         '''
         #:param max_diff_between_widths_coeff:the maximum difference between widths of modes to be considered as a group of same mode
-        print("Do you want to run a frequncy scan? (True/False)")
-        run_experiment = input()
-        if not run_experiment=='True':
-            print("what is the full path of your npz file?")
-            file_root = input()
-            print("what is the name of the npz file? (such as: filename.npz)")
-            load_filename = '\\'+input()
+        # print("Do you want to run a frequncy scan? (True/False)")
+        # run_experiment = input()
+        # if run_experiment=='True':
+        #     super().__init__()
+        #     self.get_wide_spectrum(parmeters_by_console=True)
+        #     self.plot_spectrum(self.total_spectrum)
+        #     self.save_figure_and_data(file_root,
+        #                            self.total_spectrum, 1000, 'Test')
+        #     self.Pico.__del__()
+        #     self.Laser.__del__()
+        # else:
+        #     print("what is the full path of your npz file?")
+        #     file_root = input()
+        #     print("what is the name of the npz file? (such as: filename.npz)")
+        #     load_filename = '\\'+input()
 
-        if run_experiment=='True':
-            super().__init__()
-            self.get_wide_spectrum(parmeters_by_console=True)
-            self.plot_spectrum(self.total_spectrum)
-            self.save_figure_and_data(file_root,
-                                   self.total_spectrum, 1000, 'Test')
-            self.Pico.__del__()
-            self.Laser.__del__()
-        else:
-            data = np.load(os.path.join(file_root + load_filename))
-            self.total_spectrum = data['spectrum']
-            self.scan_wavelengths = data['wavelengths']
+        data = np.load(os.path.join(file_root + load_filename))
+        self.total_spectrum = data['spectrum']
+        self.scan_wavelengths = data['wavelengths']
 
         # convert from nm to THz
         self.scan_freqs = self.get_scan_freqs()
@@ -79,12 +79,16 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.plot_lorenzians()
         plt.show()
 
+        # classify peaks to different rings
+        self.classify_peaks(fsr, num_of_rings, init_frequency,diff_between_groups)
+
         #get parameters and save them
         self.get_analysis_spectrum_data()
         if run_experiment=='True':
             self.save_analyzed_data(dist_root=self.transmission_directory_path, filename=saved_filename)
         else:
             self.save_analyzed_data(dist_root=file_root, filename=saved_filename)
+
     def save_analyzed_data(self,dist_root,filename):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         # create directory
@@ -103,14 +107,69 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         np.savez(os.path.join(directory_path,timestr+filename+'.npz'), data = self.analysis_spectrum_data)
 
 
-    def classify_peaks(self,fsr, num_of_rings):
+    def classify_peaks(self,fsr, num_of_rings, init_frequency,diff_between_groups):
         '''
         classify peaks to their fsr and ring number
         :param fsr - the distance between peaks
         :param num of rings - number of rings
+        :param init_frequency- the frequency of a peak of a first ring
         :return:
         '''
+        self.peak_groups = self.divide_into_peak_groups(init_frequency=init_frequency,fsr=fsr)
+        classified_peaks = self.relate_pk_to_ring(init_frequency=init_frequency,num_of_rings=num_of_rings,fsr=fsr,diff_between_groups=diff_between_groups)
+        return classified_peaks
 
+    def divide_into_peak_groups(self,init_frequency,fsr):
+        '''
+        divides a group of oeaks intogroups of different resonances
+        :param fsr_dist - the distance between peaks
+        :param num of rings - number of rings
+        :param init_frequency- the frequency of a peak of a first ring
+        :return:full_pk_group - a group of peaks in the length of num_of_peaks
+        :return:single_fsr_peaks - a group of peaks divided into subgroups of different fsrs
+        '''
+        peak_groups = []
+        fsr_init_freq = init_frequency
+        while fsr_init_freq<self.scan_freqs[self.peaks_fundamental_mode[0]] :
+            peak_groups.append([peak for peak in self.peaks_fundamental_mode if fsr_init_freq<self.scan_freqs[peak]<(fsr_init_freq+fsr)])
+            fsr_init_freq += fsr
+        return peak_groups
+
+    def relate_pk_to_ring(self,init_frequency,fsr,num_of_rings,diff_between_groups):
+        '''
+
+        relates peaks of fundamental mode to thier ring.
+        peak_group_relative_dist - the peaksdivided to fsr and each group includes the distance from initial frequency of fsr
+        diff_between_groups - the maximal distance in  THz between peaks from different groups related to the same ring
+        :return: classified_peaks - a group of cpouples: (ring,peak)
+
+        '''
+        full_pk_group = []
+        classified_peaks = []
+        for i in range(len(self.peak_groups)):
+            classified_peaks.append([])  # In each iteration, add an empty list to the main list
+
+        # generate groups of peaks all relatively distanced from the iniial frequency
+        peak_group_relative_dist = [[peak -(init_frequency+fsr*fsr_num) for peak in peak_group]
+                                    for fsr_num, peak_group in enumerate(self.peak_groups)]
+
+        # find a group with num_of_rings peaks to be a reference for order peaks
+        for peak_group in range(len(peak_group_relative_dist)):
+            if len(peak_group_relative_dist[peak_group]) ==num_of_rings:
+                full_pk_group = peak_group_relative_dist[peak_group]
+                break
+        if full_pk_group == []:
+            print(bcolors.WARNING + "Warning: There is no FSR with peaks as the number of rings"
+                                    ", can not classify peak to different rings" + bcolors.ENDC)
+            return classified_peaks
+
+        #  generate group of couples: (ring,peak) by comparing to full_pk_group
+        for peak_group in range(len(peak_group_relative_dist)):
+            for i in range(num_of_rings):
+                numpy_pk_group = np.asarray(peak_group_relative_dist[peak_group])
+                peak = np.where(numpy_pk_group-full_pk_group[i]<diff_between_groups)
+                classified_peaks[peak_group].append((peak_group_relative_dist[peak_group][peak[0][0]],i))
+        return classified_peaks
 
     def divide_to_different_modes(self,modes_width, division_width_between_modes):  # max_diff_between_widths_coeff=0.1):
         '''
