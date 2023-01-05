@@ -86,10 +86,10 @@ class TransmissionSpectrum:
         self.total_spectrum = np.array(self.total_spectrum)
 
         # create vector of wavelengths in the scan
-        self.find_wavelength_scanned()
+        self.get_scan_wavelengths()
 
 
-    def find_wavelength_scanned(self):
+    def get_scan_wavelengths(self):
         m_wavenumber_transmitted = (self.final_wavelength - self.init_wavelength + self.single_scan_width) / len(
             self.total_spectrum)
         self.scan_wavelengths = m_wavenumber_transmitted * np.arange(0, len(self.total_spectrum)) + (

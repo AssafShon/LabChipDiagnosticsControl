@@ -1,5 +1,4 @@
 
-import pandas as pd
 from scipy.interpolate import CubicSpline
 from scipy.signal import peak_widths, find_peaks
 import numpy as np
@@ -65,13 +64,19 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                                    self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i]/2))] for i in range(len(self.peaks))]
 
         #divide different modes
-        self.divide_to_different_modes(division_width_between_modes = division_width_between_modes,modes_width =self.peaks_width_in_Thz )
+        self.fundamental_mode,self.high_mode =self.divide_to_different_modes(peaks=self.peaks,division_width_between_modes = division_width_between_modes,modes_width =self.peaks_width_in_Thz )
+        [self.peaks_fundamental_mode, self.peaks_high_mode] = [self.fundamental_mode[1],self.high_mode[1]]
+        self.peaks_fund_mode_ind = self.fundamental_mode[0]
+        self.peaks_per_mode = [self.peaks_fundamental_mode, self.peaks_high_mode]
+
 
         #plot figure with peaks
-        self.plot_peaks()
+        self.plot_peaks(scan_freqs=self.scan_freqs,interpolated_spectrum=self.interpolated_spectrum,
+                        peaks_per_mode=self.peaks_per_mode)
 
         #fit lorenzians
         [self.fit_res,self.fit_cov_params] = self.fit_lorenzians()
+
         #
         self.effective_kappa_all_resonances = self.calc_effective_kappa_and_h()
 
@@ -84,28 +89,39 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.classify_peaks(fsr, num_of_rings, init_frequency,diff_between_groups)
 
         #get parameters and save them
-        self.get_analysis_spectrum_data()
+        self.get_analysis_spectrum_parameters()
         if run_experiment=='True':
-            self.save_analyzed_data(dist_root=self.transmission_directory_path, filename=saved_filename)
+            self.save_analyzed_data(dist_root=self.transmission_directory_path, filename=saved_filename
+                                    , analysis_spectrum_parameters=self.analysis_spectrum_parameters,
+                                    spectrum_data=[self.interpolated_spectrum,self.scan_freqs,self.fit_res,self.peaks,
+                                    self.peaks_width])
         else:
-            self.save_analyzed_data(dist_root=file_root, filename=saved_filename)
+            self.save_analyzed_data(dist_root=file_root, filename=saved_filename
+                                    , analysis_spectrum_parameters=self.analysis_spectrum_parameters,
+                                    spectrum_data=[self.interpolated_spectrum, self.scan_freqs, self.fit_res,
+                                                   self.peaks, self.peaks_width])
 
-    def save_analyzed_data(self,dist_root,filename):
+    def save_analyzed_data(self,dist_root,filename,analysis_spectrum_parameters, spectrum_data):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         # create directory
         analysis_path = dist_root+r'\analysis'
         if not os.path.isdir(analysis_path):
             os.mkdir(analysis_path)
-        directory_path = os.path.join(analysis_path,timestr)
-        os.mkdir(directory_path)
         # save figure
-        plt.savefig(os.path.join(directory_path,timestr+filename+'.png'))
-        #save data as csv
-        filename_csv = os.path.join(directory_path,timestr+filename+'.csv')
+        plt.savefig(os.path.join(analysis_path,timestr+filename+'.png'))
+        # save data as csv
+        if not analysis_spectrum_parameters is None:
+            prameters_csv = os.path.join(analysis_path,'parameters_'+timestr+filename+'.csv')
+            with open(prameters_csv, 'w') as f:
+                for key in analysis_spectrum_parameters.keys():
+                    f.write("%s,%s\n"%(key,self.analysis_spectrum_parameters[key]))
+            # save python data
+            np.savez(os.path.join(analysis_path,'parameters_'+timestr+filename+'.npz'),
+                     parameters=analysis_spectrum_parameters)
 
-        df = pd.DataFrame(self.analysis_spectrum_data)
-        df.to_csv(filename_csv, index=False, header=True)
-        np.savez(os.path.join(directory_path,timestr+filename+'.npz'), data = self.analysis_spectrum_data)
+        # save figure data in python
+        np.savez(os.path.join(analysis_path, 'spectrum_data_'+timestr + filename + '.npz'),
+                 spectrum=spectrum_data)
 
 
     def classify_peaks(self,fsr, num_of_rings, init_frequency,diff_between_groups):
@@ -172,7 +188,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 classified_peaks[peak_group].append((peak_group_relative_dist[peak_group][peak[0][0]],i))
         return classified_peaks
 
-    def divide_to_different_modes(self,modes_width, division_width_between_modes):  # max_diff_between_widths_coeff=0.1):
+    def divide_to_different_modes(self,peaks,modes_width, division_width_between_modes):  # max_diff_between_widths_coeff=0.1):
         '''
         divides peaks into different modes depending on their width
         :param diff_condition_between_modes_width - defines the difference in mode width to be considered as the same mode
@@ -181,26 +197,23 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # cl = cluster.HierarchicalClustering(modes_width, lambda x, y: abs(x - y))
         # self.peaks_width_per_mode = cl.getlevel(max_diff_between_widths_coeff*np.mean(modes_width)) fundamental
 
-        self.widths_fundamental_mode = [a for a in modes_width if a<division_width_between_modes]
-        self.peaks_fund_mode_ind = [j for j, x in enumerate(modes_width) if x in self.widths_fundamental_mode]
-        self.peaks_fundamental_mode = [self.peaks[k] for k in self.peaks_fund_mode_ind]
+        widths_fundamental_mode = [a for a in modes_width if a<division_width_between_modes]
+        peaks_fund_mode_ind = [j for j, x in enumerate(modes_width) if x in widths_fundamental_mode]
+        peaks_fundamental_mode = [peaks[k] for k in peaks_fund_mode_ind]
+        fundamental_mode = [widths_fundamental_mode, peaks_fundamental_mode, peaks_fund_mode_ind]
 
+        widths_high_mode = [a for a in modes_width if a>division_width_between_modes]
+        peaks_high_mode_ind = [j for j, x in enumerate(modes_width) if x in widths_high_mode]
+        peaks_high_mode = [peaks[k] for k in peaks_high_mode_ind]
+        high_mode = [widths_high_mode, peaks_high_mode, peaks_high_mode_ind]
 
-        self.widths_high_mode = [a for a in modes_width if a>division_width_between_modes]
-        self.peaks_high_mode_ind = [j for j, x in enumerate(modes_width) if x in self.widths_high_mode]
-        self.peaks_high_mode = [self.peaks[k] for k in self.peaks_high_mode_ind]
+        return fundamental_mode,high_mode
 
-        self.peaks_per_mode = [self.peaks_fundamental_mode,self.peaks_high_mode]
-
-
-    def plot_peaks(self):
+    def plot_peaks(self,scan_freqs,interpolated_spectrum,peaks_per_mode):
         plt.figure()
-        plt.plot(self.scan_freqs, self.interpolated_spectrum)
-        plt.plot(self.scan_freqs[self.peaks], self.interpolated_spectrum[self.peaks], 'o')
-        plt.hlines(self.peaks_width[1], self.scan_freqs[(self.peaks_width[2]).astype(int)],
-                   self.scan_freqs[(self.peaks_width[3]).astype(int)])
-        # plt.plot(self.scan_freqs[(self.peaks[4] - int(self.peaks_width[0][4]*0.7)):(self.peaks[4] + int(self.peaks_width[0][4]*0.7))],
-        #          self.interpolated_spectrum[(self.peaks[4] - int(self.peaks_width[0][4]*0.7)):(self.peaks[4] + int(self.peaks_width[0][4]*0.7))])
+        plt.plot(scan_freqs, interpolated_spectrum)
+        for i in range(len(peaks_per_mode)):
+            plt.plot(self.scan_freqs[peaks_per_mode[i]],interpolated_spectrum[peaks_per_mode[i]], 'o')
 
     def plot_lorenzians(self):
         plt.figure()
@@ -282,18 +295,18 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             fit_quality.append(np.sqrt(np.diag(pcov)))
         return [fit_parameters, fit_quality]
 
-    def get_analysis_spectrum_data(self):
+    def get_analysis_spectrum_parameters(self):
         # generates a list of resonances with all parameters
-        self.analysis_spectrum_data ={}
-        self.analysis_spectrum_data['mode'] = ["fundamental" if i in self.peaks_fund_mode_ind else "high"
+        self.analysis_spectrum_parameters ={}
+        self.analysis_spectrum_parameters['mode'] = ["fundamental" if i in self.peaks_fund_mode_ind else "high"
                                                for i in range(len(self.peaks))]
-        self.analysis_spectrum_data['peak_freq[THz]'] = self.scan_freqs[self.peaks].tolist()
-        self.analysis_spectrum_data['kappa_ex[GHz]'] = [self.fit_res[i][0]*1e3 for i in range(len(self.fit_res))]
-        self.analysis_spectrum_data['kappa_i[GHz]'] = [self.fit_res[i][1]*1e3 for i in range(len(self.fit_res))]
-        self.analysis_spectrum_data['h[GHz]'] = [self.fit_res[i][5]*1e3 for i in range(len(self.fit_res))]
-        # self.analysis_spectrum_data['standard deviation of kappa_ex'] = [self.fit_cov_params[i][0] for i in range(len(self.fit_cov_params))]
-        # self.analysis_spectrum_data['standard deviation of kappa_i'] = [self.fit_cov_params[i][1] for i in range(len(self.fit_cov_params))]
-        # self.analysis_spectrum_data['standard deviation of h'] = [self.fit_cov_params[i][5] for i in range(len(self.fit_cov_params))]
+        self.analysis_spectrum_parameters['peak_freq'] = self.scan_freqs[self.peaks].tolist()
+        self.analysis_spectrum_parameters['kappa_ex'] = [self.fit_res[i][0] for i in range(len(self.fit_res))]
+        self.analysis_spectrum_parameters['kappa_i'] = [self.fit_res[i][1] for i in range(len(self.fit_res))]
+        self.analysis_spectrum_parameters['h'] = [self.fit_res[i][5] for i in range(len(self.fit_res))]
+        # self.analysis_spectrum_parameters['standard deviation of kappa_ex'] = [self.fit_cov_params[i][0] for i in range(len(self.fit_cov_params))]
+        # self.analysis_spectrum_parameters['standard deviation of kappa_i'] = [self.fit_cov_params[i][1] for i in range(len(self.fit_cov_params))]
+        # self.analysis_spectrum_parameters['standard deviation of h'] = [self.fit_cov_params[i][5] for i in range(len(self.fit_cov_params))]
 
     def calc_effective_kappa_and_h(self):
         # returns the geometric average of kappa i, kappa ex and h
@@ -309,6 +322,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         :return: freqs - in Thz
         '''
         freqs = (C_light* 1e-12) / (self.scan_wavelengths * 1e-9)
+        freqs = freqs.reverse()
         return freqs
 
     def Lorenzian(self,x, kex, ki, x_dc, y_dc,amp,h):
