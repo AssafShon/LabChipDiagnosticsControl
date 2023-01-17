@@ -43,7 +43,7 @@ class OptimizeCoupling:
 if __name__ == "__main__":
     # try:
         o=OptimizeCoupling(x_safety_limit=1.652)
-        o.optimize_coupling()
+        #o.optimize_coupling()
     # except:
     #     o.Pico.__del__()
     #     o.Stage.__del__()

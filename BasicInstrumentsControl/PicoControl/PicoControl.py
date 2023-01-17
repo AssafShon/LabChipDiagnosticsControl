@@ -349,7 +349,8 @@ class PicoSigGenControl():
 
         #unit conversion
         self.pk_to_pk_voltage = int(pk_to_pk_voltage*1e6) #[uV]
-        self.WaveType = ps.PS4000A_WAVE_TYPE['PS4000A_'+wave_type]
+        # self.WaveType = ps.PS4000A_WAVE_TYPE['PS4000A_'+wave_type]
+        self.WaveType = ps.PS4000A_WAVE_TYPE['PS4000A_TRIANGLE']
         self.SweepType = ps.PS4000A_SWEEP_TYPE['PS4000A_UP']
         self.TriggerType = ps.PS4000A_SIGGEN_TRIG_TYPE['PS4000A_SIGGEN_RISING']
         self.TriggerSource = ps.PS4000A_SIGGEN_TRIG_SOURCE['PS4000A_SIGGEN_NONE']
@@ -378,7 +379,7 @@ if __name__=='__main__':
     Scope.plot_trace()
         # i=i+1
 
-    Pico.__del__()
+    # Pico.__del__()
     # Instance = 'SCOPE'
     # if Instance== 'SCOPE':
     #     o=PicoScopeControl()
