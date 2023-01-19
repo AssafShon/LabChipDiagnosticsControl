@@ -60,8 +60,8 @@ class HeaterScan(TransmissionSpectrum):
         self.scan_freqs = AnalyzeSpectrum.get_scan_freqs(scan_wavelengths=self.scan_wavelengths)
 
         # smooth spectrum
-        interpolated_spectrum = AnalyzeSpectrum.smooth_spectrum(decimation=self.decimation, spectrum=spectrum,
-                                                                wavelengths=self.scan_wavelengths)
+        interpolated_spectrum = AnalyzeSpectrum.smooth_and_normalize_spectrum(decimation=self.decimation, spectrum=spectrum,
+                                                                              wavelengths=self.scan_wavelengths)
         peaks_width, peaks, peaks_properties = AnalyzeSpectrum.find_peaks_in_spectrum( prominence=15, height=None, distance=None, rel_height=0.5,spectrum=interpolated_spectrum)
         peaks_width_in_Thz = [self.scan_freqs[( peaks[i] + int(peaks_width[0][i] / 2))] -
                                    self.scan_freqs[(peaks[i] - int(peaks_width[0][i] / 2))] for i in

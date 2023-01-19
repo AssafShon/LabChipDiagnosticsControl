@@ -14,7 +14,7 @@ from Utility_functions import bcolors
 C_light= 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
-    def __init__(self, decimation=1, prominence=60, height=None, distance=None, rel_height=0.5, division_width_between_modes = 3e-3
+    def __init__(self, decimation=1, prominence=0.2, height=None, distance=None, rel_height=0.5, division_width_between_modes = 3e-3
                  , saved_file_root =r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\assaf_dev',
                  saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
         '''
@@ -58,8 +58,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # convert from nm to THz
         self.scan_freqs = self.get_scan_freqs(self.scan_wavelengths)
 
-        # smooth spectrum
-        self.interpolated_spectrum = self.smooth_spectrum(decimation, spectrum =self.total_spectrum, wavelengths=self.scan_wavelengths)
+        # smooth spectrum and normalize it
+        self.interpolated_spectrum = self.smooth_and_normalize_spectrum(decimation, spectrum =self.total_spectrum, wavelengths=self.scan_wavelengths)
 
         # find peaks and divide to different modes
         self.peaks_width,self.peaks,self.peaks_properties = self.find_peaks_in_spectrum(prominence,height,distance,rel_height,spectrum=self.interpolated_spectrum)
@@ -232,7 +232,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
     # needed to be class method so it can be called without generating an instance
     @classmethod
-    def smooth_spectrum(self,decimation,spectrum,wavelengths):
+    def smooth_and_normalize_spectrum(self, decimation, spectrum, wavelengths):
         '''
         smooth the spectrum transmission with decimation and interpulation.
         :return:
@@ -242,7 +242,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         cs = CubicSpline(decimated_scanned_wavelengths, decimated_total_spectrum)
         interpolated_spectrum = cs(wavelengths)
-        return interpolated_spectrum
+        norm_interpolated_spectrum = interpolated_spectrum/max(interpolated_spectrum)
+        return norm_interpolated_spectrum
 
     # needed to be class method so it can be called without generating an instance
     @classmethod
@@ -298,6 +299,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 fit_quality.append(np.sqrt(np.diag(pcov)))
             except Exception:
                 print(bcolors.WARNING + "Warning: peak number "+str(i)+" could not be fitted to lorenzian" + bcolors.ENDC)
+                fit_parameters.append(0*popt)
+                fit_quality.append(np.sqrt(np.diag(0*pcov)))
         return [fit_parameters, fit_quality]
 
     def get_analysis_spectrum_parameters(self):
@@ -334,4 +337,4 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
 
 if __name__ == "__main__":
-    o=AnalyzeSpectrum(decimation=100)
+    o=AnalyzeSpectrum(decimation=1)
