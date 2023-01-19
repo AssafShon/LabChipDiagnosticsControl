@@ -119,11 +119,11 @@ class TransmissionSpectrum:
         # save figure
         plt.savefig(os.path.join(self.transmission_directory_path,timestr+filename+'.png'))
         #save data as csv
-        np.savetxt(os.path.join(self.transmission_directory_path,timestr+filename+'.csv'), spectrum_data[0:-1:decimation], delimiter=',')
+        np.savetxt(os.path.join(self.transmission_directory_path,timestr+filename+'.csv'), spectrum_data, delimiter=',')
         #save python data
         np_filename = timestr + filename + '.npz'
         np_root = os.path.join(self.transmission_directory_path,np_filename)
-        np.savez(np_root, spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths[0:-1:decimation])
+        np.savez(np_root, spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths)
         return np_root
 
 if __name__ == "__main__":

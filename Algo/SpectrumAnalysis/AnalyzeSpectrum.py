@@ -14,7 +14,7 @@ from Utility_functions import bcolors
 C_light= 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
-    def __init__(self, decimation=1, prominence=40, height=None, distance=None, rel_height=0.5, division_width_between_modes = 3e-3
+    def __init__(self, decimation=1, prominence=60, height=None, distance=None, rel_height=0.5, division_width_between_modes = 3e-3
                  , saved_file_root =r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\assaf_dev',
                  saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
         '''
@@ -41,10 +41,13 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             self.Pico.__del__()
             self.Laser.__del__()
         else:
-            print("what is the full path of your npz file?")
-            saved_file_root = input()
-            print("what is the name of the npz file? (such as: filename.npz)")
-            load_filename = input()
+            # print("what is the full path of your npz file?")
+            # saved_file_root = input()
+            # print("what is the name of the npz file? (such as: filename.npz)")
+            # load_filename = input()
+            saved_file_root = r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic\07E0\chip2\W1-09'
+            load_filename = r'20230110-102329Test.npz'
+
             np_root = os.path.join(saved_file_root, load_filename)
             #np_root = os.path.join(self.transmission_directory_path, load_filename)
 
@@ -279,7 +282,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         fit_quality = []
         for i in range(len(self.peaks)):
             # initial guess
-            kappa_guess = self.scan_freqs[self.peaks_width[2][i].astype(int)]-self.scan_freqs[self.peaks_width[3][i].astype(int)] # a guess for the aprrox width of the lorenzian [THz]
+            kappa_guess = self.scan_freqs[self.peaks_width[3][i].astype(int)]-self.scan_freqs[self.peaks_width[2][i].astype(int)] # a guess for the aprrox width of the lorenzian [THz]
             x_dc_guess = self.scan_freqs[self.peaks[i]] # a guess for the central frequency [THz]
             y_dc_guess = self.peaks_properties["prominences"][i]+self.interpolated_spectrum[self.peaks[i]]
             amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
@@ -289,11 +292,11 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             y_data =  self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i])):(self.peaks[i] + int(self.peaks_width[0][i]))]
             try:
                 popt, pcov = curve_fit(self.Lorenzian, x_data,
-                                       y_data,
-                                       bounds=([0,0,0,0,y_dc_guess*0.9,amp_guess/3,0], [1e3, 1e3,1e5, y_dc_guess*1.1,amp_guess*3,1]), p0=initial_guess)
+                                      y_data,
+                                      bounds=([0,0,0,y_dc_guess*0.9,amp_guess/3,0], [1e3, 1e3,1e5, y_dc_guess*1.1,amp_guess*3,1]), p0=initial_guess)
                 fit_parameters.append(popt)
                 fit_quality.append(np.sqrt(np.diag(pcov)))
-            except:
+            except Exception:
                 print(bcolors.WARNING + "Warning: peak number "+str(i)+" could not be fitted to lorenzian" + bcolors.ENDC)
         return [fit_parameters, fit_quality]
 
@@ -331,4 +334,4 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
 
 if __name__ == "__main__":
-    o=AnalyzeSpectrum(decimation=5)
+    o=AnalyzeSpectrum(decimation=100)
