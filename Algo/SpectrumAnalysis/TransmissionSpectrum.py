@@ -88,7 +88,6 @@ class TransmissionSpectrum:
         # create vector of wavelengths in the scan
         self.get_scan_wavelengths()
 
-
     def get_scan_wavelengths(self):
         m_wavenumber_transmitted = (self.final_wavelength - self.init_wavelength + self.single_scan_width) / len(
             self.total_spectrum)
@@ -110,7 +109,7 @@ class TransmissionSpectrum:
         plt.ylabel('Voltage[mV]')
         plt.grid(True)
         plt.plot(self.scan_wavelengths[0:-1:decimation], Y[0:-1:decimation],'r')
-        plt.show()
+        # plt.show()
 
     def save_figure_and_data(self,dist_root,spectrum_data,decimation,filename = 'Transmission_spectrum'):
         timestr = time.strftime("%Y%m%d-%H%M%S")
@@ -122,7 +121,10 @@ class TransmissionSpectrum:
         #save data as csv
         np.savetxt(os.path.join(self.transmission_directory_path,timestr+filename+'.csv'), spectrum_data, delimiter=',')
         #save python data
-        np.savez(os.path.join(self.transmission_directory_path,timestr+filename+'.npz'), spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths[0:-1:decimation])
+        np_filename = timestr + filename + '.npz'
+        np_root = os.path.join(self.transmission_directory_path,np_filename)
+        np.savez(np_root, spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths)
+        return np_root
 
 if __name__ == "__main__":
     try:
