@@ -64,7 +64,7 @@ class KeithleyPwrSupplyControl():
 
     def estimate_avg_resistance(self, current_setpoints=[2, 4, 6],high_volts=30):
         ''''
-        estimates average resistance bymeasuring the voltage for 3 current points and
+        estimates average resistance by measuring the voltage for 3 current points and
         taking the average.
         :param current_setpoints: a list of currentsto take average on  [mA]
         '''
@@ -73,6 +73,7 @@ class KeithleyPwrSupplyControl():
         self.OutputState(1)
         voltage_setpoints = np.zeros(len(current_setpoints))
         for index, I in enumerate(current_setpoints):
+            # to protect against high currents
             if I > self.current_lim:
                 raise Exception(I + ' [mA] is higher then ' + self.current_lim
                                 + ' [mA] the current limit')
