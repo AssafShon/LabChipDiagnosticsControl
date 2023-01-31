@@ -14,13 +14,11 @@ from Utility_functions import bcolors
 C_light= 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
-    def __init__(self, decimation=100, prominence=0.1, height=None, distance=None, rel_height=0.5, division_width_between_modes = 30e-3
-                 , saved_file_root =r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\assaf_dev',
+    def __init__(self, prominence=0.2, height=None, distance=None, rel_height=0.5,
+                 saved_file_root =r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\assaf_dev',
                  saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
         '''
-
-        :param decimation: defines the decimation on the signal at the function smooth spectrum (takes each "decimation" index from the spectrum and then interpulates between the points)
-        :param prominence: The prominence of a peak measures how much a peak stands out from the surrounding
+        :param prominence: The prominence of a peak measures how much a peak stands out from the surrounding [normalized from 0 to 1]
                            baseline of the signal and is defined as the vertical distance between the peak and its lowest contour line.:
         :param height: Required height of peaks. Either a number, None, an array matching x or a 2-element squence of thee former.
                        The first element is always interpreted as the minimal and the second, if supplied, as the maximal required height.
@@ -35,7 +33,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         if run_experiment == 'True' or run_experiment == '1' or run_experiment == 'true':
             super().__init__()
             self.get_wide_spectrum(parmeters_by_console=True)
-            self.plot_spectrum(self.total_spectrum,decimation=int(10))
+            decimation_in_samples_for_scan = 10
+            self.plot_spectrum(self.total_spectrum,decimation=decimation_in_samples_for_scan)
             np_root =self.save_figure_and_data(saved_file_root,
                                    self.total_spectrum,10,'Test')
             self.Pico.__del__()
@@ -51,14 +50,21 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             np_root = os.path.join(saved_file_root, load_filename)
             #np_root = os.path.join(self.transmission_directory_path, load_filename)
 
+        # load saved data
         data = np.load(np_root)
         self.total_spectrum = data['spectrum']
         self.scan_wavelengths = data['wavelengths']
 
+        # plot original data before analysis
+        plt.figure()
+        plt.plot(self.scan_wavelengths,self.total_spectrum)
+
         # convert from nm to THz
         self.scan_freqs = self.get_scan_freqs(self.scan_wavelengths)
 
+
         # smooth spectrum and normalize it
+        decimation = self.invert_decimatiom_from_freq_to_samples()
         self.interpolated_spectrum = self.smooth_and_normalize_spectrum(decimation, spectrum =self.total_spectrum, wavelengths=self.scan_wavelengths)
 
         # find peaks and divide to different modes
@@ -84,6 +90,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                         peaks_per_mode=self.peaks_per_mode)
 
         #fit lorenzians
+        self.width_increase = 1.2 # multipy this factor to the width of peak for the width of fit
         [self.fit_res,self.fit_cov_params] = self.fit_lorenzians()
 
         #
@@ -103,37 +110,36 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             self.save_analyzed_data(dist_root=self.transmission_directory_path, filename=saved_filename
                                     , analysis_spectrum_parameters=self.analysis_spectrum_parameters,
                                     spectrum_data=[self.interpolated_spectrum,self.scan_freqs,self.fit_res,self.peaks,
-                                    self.peaks_width])
+                                    self.peaks_width],figure=self.lorenzian_fig)
         else:
             self.save_analyzed_data(dist_root=saved_file_root, filename=saved_filename
                                     , analysis_spectrum_parameters=self.analysis_spectrum_parameters,
                                     spectrum_data=[self.interpolated_spectrum, self.scan_freqs, self.fit_res,
-                                                   self.peaks, self.peaks_width])
-
+                                                   self.peaks, self.peaks_width],figure=self.lorenzian_fig)
     @classmethod
-    def save_analyzed_data(self,dist_root,filename,analysis_spectrum_parameters, spectrum_data):
+    def save_analyzed_data(self,dist_root,filename,analysis_spectrum_parameters, spectrum_data,figure):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         # create directory
         analysis_path = dist_root+r'\analysis'
         if not os.path.isdir(analysis_path):
             os.mkdir(analysis_path)
         # create directory
-        self.analysis_path_with_time = os.path.join(analysis_path,timestr)
-        os.mkdir(self.analysis_path_with_time)
+        analysis_path_with_time = os.path.join(analysis_path,timestr)
+        os.mkdir(analysis_path_with_time)
         # save figure
-        plt.savefig(os.path.join(self.analysis_path_with_time,timestr+filename+'.png'))
+        figure.savefig(os.path.join(analysis_path_with_time,timestr+filename+'.png'))
         # save data as csv
         if not analysis_spectrum_parameters is None:
-            prameters_csv = os.path.join(self.analysis_path_with_time,'parameters_'+timestr+filename+'.csv')
+            prameters_csv = os.path.join(analysis_path_with_time,'parameters_'+timestr+filename+'.csv')
             with open(prameters_csv, 'w') as f:
                 for key in analysis_spectrum_parameters.keys():
                     f.write("%s,%s\n"%(key,analysis_spectrum_parameters[key]))
             # save python data
-            np.savez(os.path.join(self.analysis_path_with_time,'parameters_'+timestr+filename+'.npz'),
+            np.savez(os.path.join(analysis_path_with_time,'parameters_'+timestr+filename+'.npz'),
                      parameters=analysis_spectrum_parameters)
 
         # save figure data in python
-        np.savez(os.path.join(self.analysis_path_with_time, 'spectrum_data_'+timestr + filename + '.npz'),
+        np.savez(os.path.join(analysis_path_with_time, 'spectrum_data_'+timestr + filename + '.npz'),
                  spectrum=spectrum_data)
 
 
@@ -233,15 +239,15 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             plt.plot(scan_freqs[peaks_per_mode[i]],interpolated_spectrum[peaks_per_mode[i]], 'o')
 
     def plot_lorenzians(self):
-        plt.figure()
+        self.lorenzian_fig = plt.figure()
         plt.plot(self.scan_freqs, self.interpolated_spectrum)
         for i in range(len(self.peaks_per_mode)):
             plt.plot(self.scan_freqs[self.peaks_per_mode[i]], self.interpolated_spectrum[self.peaks_per_mode[i]], 'o')
         for i in range(len(self.fit_res)):
             plt.plot(self.scan_freqs[
-                     (self.peaks[i] - int(self.peaks_width[0][i])):(self.peaks[i] + int(self.peaks_width[0][i]))],
-                     self.Lorenzian(self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i])):(
-                             self.peaks[i] + int(self.peaks_width[0][i]))], *self.fit_res[i]), 'r-')
+                     (self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase )):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase ))],
+                     self.Lorenzian(self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase )):(
+                             self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))], *self.fit_res[i]), 'r-')
 
     # needed to be class method so it can be called without generating an instance
     @classmethod
@@ -301,9 +307,9 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             y_dc_guess = self.peaks_properties["prominences"][i]+self.interpolated_spectrum[self.peaks[i]]
             amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
             initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,amp_guess,0])
-
-            x_data = self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i])):(self.peaks[i] + int(self.peaks_width[0][i]))]
-            y_data =  self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i])):(self.peaks[i] + int(self.peaks_width[0][i]))]
+            self.width_increase = 1.2
+            x_data = self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase)):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))]
+            y_data =  self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase)):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))]
             try:
                 popt, pcov = curve_fit(self.Lorenzian, x_data,
                                       y_data,
@@ -319,12 +325,12 @@ class AnalyzeSpectrum(TransmissionSpectrum):
     def get_analysis_spectrum_parameters(self):
         # generates a list of resonances with all parameters
         self.analysis_spectrum_parameters ={}
-        self.analysis_spectrum_parameters['mode'] = ["fundamental" if i in self.peaks_fund_mode_ind else "high"
+        self.analysis_spectrum_parameters['mode[THz]'] = ["fundamental" if i in self.peaks_fund_mode_ind else "high"
                                                for i in self.peaks_width_in_Thz]
-        self.analysis_spectrum_parameters['peak_freq'] = self.scan_freqs[self.peaks].tolist()
-        self.analysis_spectrum_parameters['kappa_ex'] = [self.fit_res[i][0] for i in range(len(self.fit_res))]
-        self.analysis_spectrum_parameters['kappa_i'] = [self.fit_res[i][1] for i in range(len(self.fit_res))]
-        self.analysis_spectrum_parameters['h'] = [self.fit_res[i][5] for i in range(len(self.fit_res))]
+        self.analysis_spectrum_parameters['peak_freq[GHz]'] = [round(elem,3) for elem in  self.scan_freqs[self.peaks]]
+        self.analysis_spectrum_parameters['kappa_ex[GHz]'] = [round(self.fit_res[i][0]*1e3,3) for i in range(len(self.fit_res))]
+        self.analysis_spectrum_parameters['kappa_i[GHz]'] = [round(self.fit_res[i][1]*1e3,3) for i in range(len(self.fit_res))]
+        self.analysis_spectrum_parameters['h'] = [round(self.fit_res[i][5]*1e3,3) for i in range(len(self.fit_res))]
         # self.analysis_spectrum_parameters['standard deviation of kappa_ex'] = [self.fit_cov_params[i][0] for i in range(len(self.fit_cov_params))]
         # self.analysis_spectrum_parameters['standard deviation of kappa_i'] = [self.fit_cov_params[i][1] for i in range(len(self.fit_cov_params))]
         # self.analysis_spectrum_parameters['standard deviation of h'] = [self.fit_cov_params[i][5] for i in range(len(self.fit_cov_params))]
@@ -349,5 +355,15 @@ class AnalyzeSpectrum(TransmissionSpectrum):
     def Lorenzian(self,x, kex, ki, x_dc, y_dc,amp,h):
         return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
 
+
+    def invert_decimatiom_from_freq_to_samples(self):
+        avg_freqs_diff_between_samples = np.mean(np.diff(self.scan_freqs))  #in THz
+        avg_freqs_diff_between_samples = avg_freqs_diff_between_samples*1e3 #in GHz
+        print("what is the resolution, in GHz (The current resolution is %.2f GHz)?" % avg_freqs_diff_between_samples)
+        resolution_in_GHz = float(input())
+        resolution_in_samples = int(np.ceil(resolution_in_GHz/avg_freqs_diff_between_samples))
+        return resolution_in_samples
+
+
 if __name__ == "__main__":
-    o = AnalyzeSpectrum(decimation=10)
+    o = AnalyzeSpectrum()

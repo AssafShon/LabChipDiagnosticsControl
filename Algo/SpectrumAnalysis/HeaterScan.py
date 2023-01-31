@@ -107,7 +107,6 @@ class HeaterScan(TransmissionSpectrum):
         binned_peaks = np.zeros((len(self.all_peaks),num_of_bins))
         for i in range(len(self.all_peaks)):
             binned_peaks[i] = np.histogram(a=self.all_peaks[i], bins=num_of_bins,range=freqs_range)[0] # histogram bin - init<=data<final
-
         # Decreasing the constant bins by decreasing the product of the lines (only all 1's will ber decreased)
         binned_peaks_filtered = binned_peaks - np.prod(binned_peaks, axis=0)
         heated_peak = self.extract_heated_peak_locations(binned_peaks_filtered)
