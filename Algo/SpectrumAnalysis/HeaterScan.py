@@ -4,12 +4,12 @@ import time
 from BasicInstrumentsControl.KeithleyPwrSupplyControl.KeithleyPwrSupplyControl import KeithleyPwrSupplyControl as PowerSupply
 from AnalyzeSpectrum import AnalyzeSpectrum
 
-WAIT_TIME = 60
+WAIT_TIME = 5
 
 
 class HeaterScan(TransmissionSpectrum):
-    def __init__(self, max_current_scan=10e-3, num_of_points_in_scan=5, typ_noise_in_freq = 3e-3,
-                 decimation=1000,division_width_between_modes = 8.0e-3):
+    def __init__(self, max_current_scan=10e-3, num_of_points_in_scan=3, typ_noise_in_freq = 20e-3,
+                 decimation=1000,division_width_between_modes = 8.0e-3 , saved_file_root =  r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\HeaterScan'):
         super().__init__()
         self.PowerSupply = PowerSupply()
 
@@ -18,6 +18,7 @@ class HeaterScan(TransmissionSpectrum):
         self.typ_noise_in_freq = typ_noise_in_freq
         self.decimation = decimation
         self.division_width_between_modes = division_width_between_modes
+        self.saved_file_root = saved_file_root
 
         self.PowerSupply.SetCurrent(0)
         self.PowerSupply.SetVoltage(20) # so voltage won't restrict the current
@@ -36,6 +37,8 @@ class HeaterScan(TransmissionSpectrum):
         '''
         # define variables
         self.all_peaks = []
+        self.spectrum_per_current = []
+
 
         for idx, current in enumerate(np.arange(0, self.max_current_scan, self.max_current_scan/self.num_of_points_in_scan)):
             # set current to power supply
@@ -44,16 +47,24 @@ class HeaterScan(TransmissionSpectrum):
             # get trace from scope and detect resonance center
             print("begin "+str(idx)+" scan")
             if idx==0:
+                mkdir=True
                 self.get_wide_spectrum(parmeters_by_console=True)
-                # self.get_wide_spectrum(parmeters_by_console=True)
 
             else:
+                mkdir=False
                 time.sleep(WAIT_TIME)
                 self.get_wide_spectrum(parmeters_by_console=False)
+
+            self.spectrum_per_current.append(self.total_spectrum)
+            # self.save_figure_and_data(self.saved_file_root,
+            #                        self.total_spectrum, 1000, 'Test',mkdir)
             peaks = self.analyze_spectrum(self.total_spectrum,idx)
             self.all_peaks.append(self.scan_freqs[peaks])
 
         self.heated_peak = self.find_heated_peak()
+        for i in range(len(self.spectrum_per_current)):
+            AnalyzeSpectrum.plot_peaks(scan_freqs=self.scan_freqs, interpolated_spectrum=self.spectrum_per_current[i],
+                                   peaks_per_mode=[[np.where(self.scan_freqs == self.heated_peak[i])[0][0] for i in range(len(self.heated_peak))],[]])
 
     def analyze_spectrum(self,spectrum,i):
         # convert from nm to THz
@@ -62,7 +73,7 @@ class HeaterScan(TransmissionSpectrum):
         # smooth spectrum
         interpolated_spectrum = AnalyzeSpectrum.smooth_and_normalize_spectrum(decimation=self.decimation, spectrum=spectrum,
                                                                               wavelengths=self.scan_wavelengths)
-        peaks_width, peaks, peaks_properties = AnalyzeSpectrum.find_peaks_in_spectrum( prominence=15, height=None, distance=None, rel_height=0.5,spectrum=interpolated_spectrum)
+        peaks_width, peaks, peaks_properties = AnalyzeSpectrum.find_peaks_in_spectrum( prominence=0.2, height=None, distance=None, rel_height=0.5,spectrum=interpolated_spectrum)
         peaks_width_in_Thz = [self.scan_freqs[( peaks[i] + int(peaks_width[0][i] / 2))] -
                                    self.scan_freqs[(peaks[i] - int(peaks_width[0][i] / 2))] for i in
                                    range(len(peaks))]
@@ -75,7 +86,7 @@ class HeaterScan(TransmissionSpectrum):
         self.peaks_per_mode = [peaks_fundamental_mode, peaks_high_mode]
         AnalyzeSpectrum.plot_peaks(scan_freqs=self.scan_freqs,interpolated_spectrum=interpolated_spectrum,
                                    peaks_per_mode=self.peaks_per_mode)
-        AnalyzeSpectrum.save_analyzed_data(dist_root=r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\HeaterScan',
+        AnalyzeSpectrum.save_analyzed_data(dist_root=self.saved_file_root,
                                            filename=r'Heater_Scan'+str(i)
                                 , analysis_spectrum_parameters=None,
                                 spectrum_data=[interpolated_spectrum, self.scan_freqs])

@@ -1,9 +1,9 @@
-
 from scipy.interpolate import CubicSpline
 from scipy.signal import peak_widths, find_peaks
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
+from collections import Counter
 from TransmissionSpectrum import TransmissionSpectrum
 import os
 import time
@@ -14,7 +14,7 @@ from Utility_functions import bcolors
 C_light= 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
-    def __init__(self, decimation=1, prominence=0.2, height=None, distance=None, rel_height=0.5, division_width_between_modes = 3e-3
+    def __init__(self, decimation=100, prominence=0.1, height=None, distance=None, rel_height=0.5, division_width_between_modes = 30e-3
                  , saved_file_root =r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\assaf_dev',
                  saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
         '''
@@ -32,21 +32,21 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # :param max_diff_between_widths_coeff:the maximum difference between widths of modes to be considered as a group of same mode
         print("Do you want to run a frequncy scan? (True/False)")
         run_experiment = input()
-        if run_experiment=='True':
+        if run_experiment == 'True' or run_experiment == '1' or run_experiment == 'true':
             super().__init__()
             self.get_wide_spectrum(parmeters_by_console=True)
-            self.plot_spectrum(self.total_spectrum,decimation=int(1000))
+            self.plot_spectrum(self.total_spectrum,decimation=int(10))
             np_root =self.save_figure_and_data(saved_file_root,
-                                   self.total_spectrum, 1000, 'Test')
+                                   self.total_spectrum,10,'Test')
             self.Pico.__del__()
             self.Laser.__del__()
         else:
-            # print("what is the full path of your npz file?")
-            # saved_file_root = input()
-            # print("what is the name of the npz file? (such as: filename.npz)")
-            # load_filename = input()
-            saved_file_root = r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic\07E0\chip2\W1-09'
-            load_filename = r'20230110-102329Test.npz'
+            print("what is the full path of your npz file?")
+            saved_file_root = input()
+            print("what is the name of the npz file? (such as: filename.npz)")
+            load_filename = input()
+            # saved_file_root = r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic\07E0\chip2\W1-09'
+            # load_filename = r'20230110-102329Test.npz'
 
             np_root = os.path.join(saved_file_root, load_filename)
             #np_root = os.path.join(self.transmission_directory_path, load_filename)
@@ -63,8 +63,14 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         # find peaks and divide to different modes
         self.peaks_width,self.peaks,self.peaks_properties = self.find_peaks_in_spectrum(prominence,height,distance,rel_height,spectrum=self.interpolated_spectrum)
-        self.peaks_width_in_Thz = [self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]/2))] -
-                                   self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i]/2))] for i in range(len(self.peaks))]
+        self.peaks_width_in_Thz = [self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i]/2))] -
+                                   self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]/2))] for i in range(len(self.peaks))]
+        print("This is the peaks width:  [value in Ghz : Amount]")
+        peaks_width_in_Ghz = [int(i*1000) for i in self.peaks_width_in_Thz]
+        print(Counter(peaks_width_in_Ghz))
+        print("choose width value for division between modes:")
+        division_width_between_modes = int(input())
+        division_width_between_modes = division_width_between_modes/1000
 
         #divide different modes
         self.fundamental_mode,self.high_mode =self.divide_to_different_modes(peaks=self.peaks,division_width_between_modes = division_width_between_modes,modes_width =self.peaks_width_in_Thz )
@@ -93,7 +99,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         #get parameters and save them
         self.get_analysis_spectrum_parameters()
-        if run_experiment=='True':
+        if run_experiment == 'True' or run_experiment == '1' or run_experiment == 'ture':
             self.save_analyzed_data(dist_root=self.transmission_directory_path, filename=saved_filename
                                     , analysis_spectrum_parameters=self.analysis_spectrum_parameters,
                                     spectrum_data=[self.interpolated_spectrum,self.scan_freqs,self.fit_res,self.peaks,
@@ -111,21 +117,26 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         analysis_path = dist_root+r'\analysis'
         if not os.path.isdir(analysis_path):
             os.mkdir(analysis_path)
+        # create directory
+        self.analysis_path_with_time = os.path.join(analysis_path,timestr)
+        os.mkdir(self.analysis_path_with_time)
         # save figure
-        plt.savefig(os.path.join(analysis_path,timestr+filename+'.png'))
+        plt.savefig(os.path.join(self.analysis_path_with_time,timestr+filename+'.png'))
         # save data as csv
         if not analysis_spectrum_parameters is None:
-            prameters_csv = os.path.join(analysis_path,'parameters_'+timestr+filename+'.csv')
+            prameters_csv = os.path.join(self.analysis_path_with_time,'parameters_'+timestr+filename+'.csv')
             with open(prameters_csv, 'w') as f:
                 for key in analysis_spectrum_parameters.keys():
                     f.write("%s,%s\n"%(key,analysis_spectrum_parameters[key]))
             # save python data
-            np.savez(os.path.join(analysis_path,'parameters_'+timestr+filename+'.npz'),
+            np.savez(os.path.join(self.analysis_path_with_time,'parameters_'+timestr+filename+'.npz'),
                      parameters=analysis_spectrum_parameters)
 
         # save figure data in python
-        np.savez(os.path.join(analysis_path, 'spectrum_data_'+timestr + filename + '.npz'),
+        np.savez(os.path.join(self.analysis_path_with_time, 'spectrum_data_'+timestr + filename + '.npz'),
                  spectrum=spectrum_data)
+
+
 
     def classify_peaks(self,fsr, num_of_rings, init_frequency,diff_between_groups):
         '''
@@ -150,6 +161,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         '''
         peak_groups = []
         fsr_init_freq = init_frequency
+        if self.peaks_fundamental_mode == {}:   #prevent an error when there is no fundamental mode peaks
+            return peak_groups
         while fsr_init_freq<self.scan_freqs[self.peaks_fundamental_mode[0]] :
             peak_groups.append([peak for peak in self.peaks_fundamental_mode if fsr_init_freq<self.scan_freqs[peak]<(fsr_init_freq+fsr)])
             fsr_init_freq += fsr
@@ -307,7 +320,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # generates a list of resonances with all parameters
         self.analysis_spectrum_parameters ={}
         self.analysis_spectrum_parameters['mode'] = ["fundamental" if i in self.peaks_fund_mode_ind else "high"
-                                               for i in range(len(self.peaks))]
+                                               for i in self.peaks_width_in_Thz]
         self.analysis_spectrum_parameters['peak_freq'] = self.scan_freqs[self.peaks].tolist()
         self.analysis_spectrum_parameters['kappa_ex'] = [self.fit_res[i][0] for i in range(len(self.fit_res))]
         self.analysis_spectrum_parameters['kappa_i'] = [self.fit_res[i][1] for i in range(len(self.fit_res))]
@@ -337,4 +350,4 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
 
 if __name__ == "__main__":
-    o=AnalyzeSpectrum(decimation=1)
+    o = AnalyzeSpectrum(decimation=10)

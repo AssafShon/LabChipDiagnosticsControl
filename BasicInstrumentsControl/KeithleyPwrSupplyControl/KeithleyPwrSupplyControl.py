@@ -7,11 +7,11 @@ import matplotlib.pyplot as plt
 
 
 class KeithleyPwrSupplyControl():
-    def __init__(self,channel=1, current_lim=10e-3):
+    def __init__(self,channel=1, current_lim=10):
         self.rm = pyvisa.ResourceManager()
         self.keithley = self.KEI2231_Connect(rsrcString='ASRL4::INSTR',getIdStr=1, timeout=20000, doRst=1)
         self.channel = channel
-        self.current_lim = current_lim
+        self.current_lim = current_lim # [mA]
 
 
 
@@ -70,12 +70,13 @@ class KeithleyPwrSupplyControl():
         '''
         self.SelectChannel(channel=self.channel)
         self.SetVoltage(high_volts)
+        self.SetCurrent(0)
         self.OutputState(1)
         voltage_setpoints = np.zeros(len(current_setpoints))
         for index, I in enumerate(current_setpoints):
             # to protect against high currents
             if I > self.current_lim:
-                raise Exception(I + ' [mA] is higher then ' + self.current_lim
+                raise Exception(str(I) + ' [mA] is higher then ' + str(self.current_lim)
                                 + ' [mA] the current limit')
             self.SetCurrent(I=(I / 1e3))  # divide by 1e3 to get [A]
             voltage_setpoints[index] = self.getVoltageOutput()

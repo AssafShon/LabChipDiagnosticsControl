@@ -54,11 +54,14 @@ class TransmissionSpectrum:
             print('The scan width in nm is:', self.single_scan_width)
             self.Laser.tlb_set_wavelength(self.init_wavelength)
 
-            self.partial_spectrum = []
+
 
 
 
     def get_wide_spectrum(self,parmeters_by_console):
+        self.total_spectrum = []
+        self.partial_spectrum = []
+
         if parmeters_by_console:
             print("Enter initial wavelength for scan in [nm]:")
             self.init_wavelength = float(input())
@@ -91,8 +94,9 @@ class TransmissionSpectrum:
     def get_scan_wavelengths(self):
         m_wavenumber_transmitted = (self.final_wavelength - self.init_wavelength + self.single_scan_width) / len(
             self.total_spectrum)
-        self.scan_wavelengths = m_wavenumber_transmitted * np.arange(0, len(self.total_spectrum)) + (
-                    self.init_wavelength - self.single_scan_width / 2)
+        self.scan_wavelengths = (m_wavenumber_transmitted * np.arange(0, len(self.total_spectrum)) + (
+                    self.init_wavelength - self.single_scan_width / 2))
+        self.scan_wavelengths = self.scan_wavelengths[0:-1]
 
     def read_csv(self, filename):
         csv_data = pd.read_csv(filename, sep=',', header=None)
@@ -111,19 +115,20 @@ class TransmissionSpectrum:
         plt.plot(self.scan_wavelengths[0:-1:decimation], Y[0:-1:decimation],'r')
         # plt.show()
 
-    def save_figure_and_data(self,dist_root,spectrum_data,decimation,filename = 'Transmission_spectrum'):
+    def save_figure_and_data(self,dist_root,spectrum_data,decimation,filename = 'Transmission_spectrum', mkdir = True):
         timestr = time.strftime("%Y%m%d-%H%M%S")
-        # create directory
-        self.transmission_directory_path = os.path.join(dist_root,timestr)
-        os.mkdir(self.transmission_directory_path)
+        if mkdir:
+            # create directory
+            self.transmission_directory_path = os.path.join(dist_root,timestr)
+            os.mkdir(self.transmission_directory_path)
         # save figure
         plt.savefig(os.path.join(self.transmission_directory_path,timestr+filename+'.png'))
         #save data as csv
-        np.savetxt(os.path.join(self.transmission_directory_path,timestr+filename+'.csv'), spectrum_data, delimiter=',')
+        np.savetxt(os.path.join(self.transmission_directory_path,timestr+filename+'.csv'), spectrum_data[0:-1:decimation], delimiter=',')
         #save python data
         np_filename = timestr + filename + '.npz'
         np_root = os.path.join(self.transmission_directory_path,np_filename)
-        np.savez(np_root, spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths)
+        np.savez(np_root, spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths[0:-1:decimation])
         return np_root
 
 if __name__ == "__main__":
@@ -132,8 +137,10 @@ if __name__ == "__main__":
         o = TransmissionSpectrum(init_wavelength = 772,final_wavelength = 781,Python_Control = True)
         # get spectrum
         o.get_wide_spectrum(parmeters_by_console=True)
-        o.plot_spectrum(o.total_spectrum,decimation=1000)
-        o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum,10000, 'Test')
+        decimation = 10
+        o.plot_spectrum(o.total_spectrum,decimation=decimation)
+        o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum
+                               ,decimation, 'Test')
         o.Pico.__del__()
         o.Laser.__del__()
     except:
