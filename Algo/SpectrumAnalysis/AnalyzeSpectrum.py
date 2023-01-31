@@ -14,8 +14,7 @@ from Utility_functions import bcolors
 C_light= 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
-    def __init__(self, prominence=0.2, height=None, distance=None, rel_height=0.5,
-                 saved_file_root =r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\assaf_dev',
+    def __init__(self, run_experiment, saved_file_root, prominence=0.2, height=None, distance=None, rel_height=0.5,
                  saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
         '''
         :param prominence: The prominence of a peak measures how much a peak stands out from the surrounding [normalized from 0 to 1]
@@ -28,22 +27,25 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         :param division_width_between_modes:the frequency whoch divides the modes [Thz]
         '''
         # :param max_diff_between_widths_coeff:the maximum difference between widths of modes to be considered as a group of same mode
-        print("Do you want to run a frequncy scan? (True/False)")
-        run_experiment = input()
         if run_experiment == 'True' or run_experiment == '1' or run_experiment == 'true':
             super().__init__()
             self.get_wide_spectrum(parmeters_by_console=True)
             decimation_in_samples_for_scan = 10
             self.plot_spectrum(self.total_spectrum,decimation=decimation_in_samples_for_scan)
             np_root =self.save_figure_and_data(saved_file_root,
-                                   self.total_spectrum,10,'Test')
+                                   self.total_spectrum,decimation_in_samples_for_scan,'')
             self.Pico.__del__()
             self.Laser.__del__()
         else:
-            print("what is the full path of your npz file?")
-            saved_file_root = input()
-            print("what is the name of the npz file? (such as: filename.npz)")
-            load_filename = input()
+            if saved_file_root == None:
+                print("what is the full path of your npz file?")
+                saved_file_root = input()
+
+            pnz_files_in_folder = [file for file in os.listdir(saved_file_root) if file.endswith('.npz')]
+            load_filename = pnz_files_in_folder[0]
+
+            #    print("what is the name of the npz file? (such as: filename.npz)")
+            #    load_filename = input()
             # saved_file_root = r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic\07E0\chip2\W1-09'
             # load_filename = r'20230110-102329Test.npz'
 
@@ -67,15 +69,18 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         decimation = self.invert_decimatiom_from_freq_to_samples()
         self.interpolated_spectrum = self.smooth_and_normalize_spectrum(decimation, spectrum =self.total_spectrum, wavelengths=self.scan_wavelengths)
 
-        # find peaks and divide to different modes
+        #find peaks and divide to different modes
         self.peaks_width,self.peaks,self.peaks_properties = self.find_peaks_in_spectrum(prominence,height,distance,rel_height,spectrum=self.interpolated_spectrum)
         self.peaks_width_in_Thz = [self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i]/2))] -
                                    self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]/2))] for i in range(len(self.peaks))]
+
+        #asking the user for division width between modes:
         print("This is the peaks width:  [value in Ghz : Amount]")
         peaks_width_in_Ghz = [int(i*1000) for i in self.peaks_width_in_Thz]
         print(Counter(peaks_width_in_Ghz))
         print("choose width value for division between modes:")
-        division_width_between_modes = int(input())
+        division_width_between_modes = 10
+        # division_width_between_modes = int(input())
         division_width_between_modes = division_width_between_modes/1000
 
         #divide different modes
@@ -308,8 +313,10 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
             initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,amp_guess,0])
             self.width_increase = 1.2
-            x_data = self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase)):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))]
-            y_data =  self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase)):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))]
+            init_data_range = np.maximum(0,(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase)))
+            final_data_range = np.minimum(len(self.scan_freqs),(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase)))
+            x_data = self.scan_freqs[init_data_range:final_data_range]
+            y_data =  self.interpolated_spectrum[init_data_range:final_data_range]
             try:
                 popt, pcov = curve_fit(self.Lorenzian, x_data,
                                       y_data,
@@ -360,10 +367,13 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         avg_freqs_diff_between_samples = np.mean(np.diff(self.scan_freqs))  #in THz
         avg_freqs_diff_between_samples = avg_freqs_diff_between_samples*1e3 #in GHz
         print("what is the resolution, in GHz (The current resolution is %.2f GHz)?" % avg_freqs_diff_between_samples)
-        resolution_in_GHz = float(input())
+        # resolution_in_GHz = float(input())
+        resolution_in_GHz = 0.8
         resolution_in_samples = int(np.ceil(resolution_in_GHz/avg_freqs_diff_between_samples))
         return resolution_in_samples
 
 
 if __name__ == "__main__":
-    o = AnalyzeSpectrum()
+    print("Do you want to run a frequncy scan? (True/False)")
+    run_experiment = input()
+    o = AnalyzeSpectrum(run_experiment=run_experiment)
