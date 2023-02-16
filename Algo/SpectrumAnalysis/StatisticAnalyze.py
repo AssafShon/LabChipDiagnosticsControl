@@ -72,7 +72,7 @@ class StatisticAnalyze(AnalyzeSpectrum):
         prameters_csv = os.path.join(analysis_path_with_time+'.csv')
         with open(prameters_csv, 'w') as f:
             for key in self.chips_dictionary.keys():
-                f.write("%s,%s\n" % (key, self.chips_dictionary[key]))
+                #f.write("%s,%s\n" % (key, self.chips_dictionary[key]))
                 for in_key in self.chips_dictionary[key]:
                     f.write("%s,%s\n, %s\n" % (key, in_key, self.chips_dictionary[key][in_key]))
 

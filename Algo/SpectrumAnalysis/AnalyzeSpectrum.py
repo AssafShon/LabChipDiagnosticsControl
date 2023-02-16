@@ -14,7 +14,7 @@ from Utility_functions import bcolors
 C_light= 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
-    def __init__(self, run_experiment, saved_file_root, prominence=0.2, height=None, distance=None, rel_height=0.5,
+    def __init__(self, run_experiment, saved_file_root=None, prominence=0.2, height=None, distance=None, rel_height=0.5,
                  saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
         '''
         :param prominence: The prominence of a peak measures how much a peak stands out from the surrounding [normalized from 0 to 1]
@@ -148,7 +148,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                  spectrum=spectrum_data)
 
 
-
     def classify_peaks(self,fsr, num_of_rings, init_frequency,diff_between_groups):
         '''
         classify peaks to their fsr and ring number
@@ -236,6 +235,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         high_mode = [widths_high_mode, peaks_high_mode, peaks_high_mode_ind]
 
         return fundamental_mode,high_mode
+
     @classmethod
     def plot_peaks(self,scan_freqs,interpolated_spectrum,peaks_per_mode):
         plt.figure()
@@ -307,7 +307,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         fit_quality = []
         for i in range(len(self.peaks)):
             # initial guess
-            kappa_guess = self.scan_freqs[self.peaks_width[3][i].astype(int)]-self.scan_freqs[self.peaks_width[2][i].astype(int)] # a guess for the aprrox width of the lorenzian [THz]
+            kappa_guess = abs(self.scan_freqs[self.peaks_width[3][i].astype(int)]-self.scan_freqs[self.peaks_width[2][i].astype(int)]) # a guess for the aprrox width of the lorenzian [THz]
             x_dc_guess = self.scan_freqs[self.peaks[i]] # a guess for the central frequency [THz]
             y_dc_guess = self.peaks_properties["prominences"][i]+self.interpolated_spectrum[self.peaks[i]]
             amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
@@ -328,7 +328,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 fit_parameters.append(0*popt)
                 fit_quality.append(np.sqrt(np.diag(0*pcov)))
         return [fit_parameters, fit_quality]
-
     def get_analysis_spectrum_parameters(self):
         # generates a list of resonances with all parameters
         self.analysis_spectrum_parameters ={}
@@ -356,7 +355,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         :return: freqs - in Thz
         '''
         freqs = (C_light * 1e-12) / (scan_wavelengths * 1e-9)
-        freqs = np.flip(freqs)
+        #freqs = np.flip(freqs)
         return freqs
 
     def Lorenzian(self,x, kex, ki, x_dc, y_dc,amp,h):
@@ -364,8 +363,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
 
     def invert_decimatiom_from_freq_to_samples(self):
-        avg_freqs_diff_between_samples = np.mean(np.diff(self.scan_freqs))  #in THz
-        avg_freqs_diff_between_samples = avg_freqs_diff_between_samples*1e3 #in GHz
+        avg_freqs_diff_between_samples = abs(np.mean(np.diff(self.scan_freqs))) # in THz
+        avg_freqs_diff_between_samples = avg_freqs_diff_between_samples*1e3 # in GHz
         print("what is the resolution, in GHz (The current resolution is %.2f GHz)?" % avg_freqs_diff_between_samples)
         # resolution_in_GHz = float(input())
         resolution_in_GHz = 0.8
