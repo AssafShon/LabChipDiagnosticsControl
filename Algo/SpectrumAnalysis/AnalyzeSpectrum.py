@@ -83,6 +83,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # division_width_between_modes = int(input())
         division_width_between_modes = division_width_between_modes/1000
 
+
         #divide different modes
         self.fundamental_mode,self.high_mode =self.divide_to_different_modes(peaks=self.peaks,division_width_between_modes = division_width_between_modes,modes_width =self.peaks_width_in_Thz )
         [self.peaks_fundamental_mode, self.peaks_high_mode] = [self.fundamental_mode[1],self.high_mode[1]]
