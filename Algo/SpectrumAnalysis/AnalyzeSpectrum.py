@@ -155,7 +155,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         classified_peaks = self.relate_pk_to_ring(init_frequency=init_frequency,num_of_rings=num_of_rings,fsr=fsr,diff_between_groups=diff_between_groups)
         return classified_peaks
 
-
     def divide_into_peak_groups(self,init_frequency,fsr):
         '''
         divides a group of oeaks intogroups of different resonances

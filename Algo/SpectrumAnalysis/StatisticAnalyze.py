@@ -67,7 +67,6 @@ class StatisticAnalyze(AnalyzeSpectrum):
             self.waveguides_dictionary[name] = self.analysis_spectrum_parameters
 
 
-
         return self.waveguides_dictionary
 
     def save_statistics(self):
