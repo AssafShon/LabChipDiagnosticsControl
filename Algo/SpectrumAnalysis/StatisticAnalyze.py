@@ -1,15 +1,10 @@
-
-from scipy.interpolate import CubicSpline
-from scipy.signal import peak_widths, find_peaks
-import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import curve_fit
-from TransmissionSpectrum import TransmissionSpectrum
 import os
 import time
 from AnalyzeSpectrum import AnalyzeSpectrum
-import csv
-from Utility_functions import bcolors
+
+
+
 
 
 class StatisticAnalyze(AnalyzeSpectrum):
@@ -36,45 +31,60 @@ class StatisticAnalyze(AnalyzeSpectrum):
         self.saved_file_root = r'C:\Users\asafs\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic'
         # load_filename = r'20230110-102329Test.npz'
 
+
         chip_types_names = os.listdir(self.saved_file_root)
 
         self.chips_dictionary = {}
 
         for elem in chip_types_names:
+        #for elem in ["01A3"]:    # fast version for debug
             single_chip_type_name = os.path.join(self.saved_file_root, elem)
             chip_number_names = os.listdir(single_chip_type_name)
 
             for chip in chip_number_names:
+            #for chip in ["chip2"]:     # fast version for debug
                 waveguides_dictionary_data = self.all_wg_of_singel_chip(dist_root_=os.path.join(single_chip_type_name, chip))
                 self.chips_dictionary[chip] = waveguides_dictionary_data
+
 
         self.save_statistics()
 
     def all_wg_of_singel_chip(self, dist_root_):
-        waveguides_dictionary = {}
+        self.waveguides_dictionary = {}
 
         self.wg_names = []
         for i in range(9, 11):
-            for j in range(1,2):
-                self.wg_names.append(r'\W'+str(j)+'-'+str(i).zfill(2))
+            for j in range(1, 2):
+                self.wg_names.append(r'W'+str(j)+'-'+str(i).zfill(2))
         for name in self.wg_names:
-            analysis_path = dist_root_ + name
-            super().__init__(run_experiment="false", saved_file_root = analysis_path)
+            analysis_path = dist_root_ + '\\' + name
+            re_analyze = 0
+            while re_analyze == 0:
+                super().__init__(run_experiment="false", saved_file_root=analysis_path)
+                print("Is the result okay? [0-No, return  1-Yes, move on]")
+                re_analyze = int(input())
             plt.close('all')
-            waveguides_dictionary[name] = self.analysis_spectrum_parameters
+            self.waveguides_dictionary[name] = self.analysis_spectrum_parameters
 
-        return waveguides_dictionary
+
+
+        return self.waveguides_dictionary
 
     def save_statistics(self):
         timestr = time.strftime("%Y%m%d-%H%M%S")
-        # create directory
+        # create excel file
         analysis_path_with_time = os.path.join(r'C:\Users\asafs\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\statistic_scans_results',timestr)
         prameters_csv = os.path.join(analysis_path_with_time+'.csv')
         with open(prameters_csv, 'w') as f:
-            for key in self.chips_dictionary.keys():
-                f.write("%s,%s\n" % (key, self.chips_dictionary[key]))
-                for in_key in self.chips_dictionary[key]:
-                    f.write("%s,%s\n, %s\n" % (key, in_key, self.chips_dictionary[key][in_key]))
+
+            f.write("%s,%s,%s,%s,%s,%s,%s \n" % ("mode[THz]","peak_freq[GHz]","kappa_ex[GHz]","kappa_i[GHz]","h","wave_guide", "chip number"))
+            for chip_name in self.chips_dictionary.keys():
+                for wg_name in self.chips_dictionary[chip_name]:
+                    for i in range(len(self.chips_dictionary[chip_name][wg_name]["mode[THz]"])):
+                        for wg_character in self.chips_dictionary[chip_name][wg_name]:
+                            f.write("%s," % self.chips_dictionary[chip_name][wg_name][wg_character][i])
+                        f.write("%s, %s\n" % (wg_name, chip_name))
+
 
 if __name__ == "__main__":
     o = StatisticAnalyze(decimation=1)
