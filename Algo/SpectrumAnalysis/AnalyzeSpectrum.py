@@ -14,8 +14,13 @@ from Utility_functions import bcolors
 C_light = 2.99792458e8
 
 class AnalyzeSpectrum(TransmissionSpectrum):
-    def __init__(self, run_experiment, saved_file_root=None, prominence=0.2, height=None, distance=None, rel_height=0.5,
-                 saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
+    def __init__(self, run_experiment, saved_file_root=None, prominence=0.16, height=None, distance=None, rel_height=0.5,
+                 saved_filename='analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384,
+                 diff_between_groups=0.03):
+
+    #def __init__(self, run_experiment, saved_file_root=None, prominence=0.2, height=None, distance=None, rel_height=0.5,
+                #saved_file_root =r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\assaf_dev',
+                 #saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
         '''
         :param prominence: The prominence of a peak measures how much a peak stands out from the surrounding [normalized from 0 to 1]
                            baseline of the signal and is defined as the vertical distance between the peak and its lowest contour line.:
@@ -43,8 +48,9 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             pnz_files_in_folder = [file for file in os.listdir(saved_file_root) if file.endswith('.npz')]
             load_filename = pnz_files_in_folder[0]
 
-            #    print("what is the name of the npz file? (such as: filename.npz)")
-            #    load_filename = input()
+
+            #print("what is the name of the npz file? (such as: filename.npz)")
+            #load_filename = input()
             # saved_file_root = r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic\07E0\chip2\W1-09'
             # load_filename = r'20230110-102329Test.npz'
 
@@ -66,19 +72,18 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
 
         # smooth spectrum and normalize it
-        decimation = self.invert_decimation_from_freq_to_samples()
-        self.interpolated_spectrum = self.smooth_and_normalize_spectrum(decimation, spectrum =self.total_spectrum, wavelengths=self.scan_wavelengths)
+        decimation = self.invert_decimatiom_from_freq_to_samples()
+        [self.interpolated_spectrum,self.interpolated_spectrum_unNorm] = self.smooth_and_normalize_spectrum(decimation, spectrum =self.total_spectrum, wavelengths=self.scan_wavelengths)
 
-        #find peaks and divide to different modes
+        # find peaks and divide to different modes
         self.peaks_width,self.peaks,self.peaks_properties = self.find_peaks_in_spectrum(prominence,height,distance,rel_height,spectrum=self.interpolated_spectrum)
-        self.peaks_width_in_Thz = [self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i]/2))] -
+        self.peaks_width_in_Thz_negative = [self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i]/2))] -
                                    self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]/2))] for i in range(len(self.peaks))]
-
-        #asking the user for division width between modes:
+        self.peaks_width_in_Thz = [abs(value) for value in self.peaks_width_in_Thz_negative]
         division_width_between_modes = self.division_width_choose()
 
         #divide different modes
-        self.fundamental_mode,self.high_mode =self.divide_to_different_modes(peaks=self.peaks,division_width_between_modes=division_width_between_modes,modes_width =self.peaks_width_in_Thz )
+        self.fundamental_mode,self.high_mode =self.divide_to_different_modes(peaks=self.peaks,division_width_between_modes = division_width_between_modes,modes_width =self.peaks_width_in_Thz )
         [self.peaks_fundamental_mode, self.peaks_high_mode] = [self.fundamental_mode[1],self.high_mode[1]]
         self.peaks_fund_mode_ind = self.fundamental_mode[0]
         self.peaks_per_mode = [self.peaks_fundamental_mode, self.peaks_high_mode]
@@ -101,7 +106,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         plt.show()
 
         # classify peaks to different rings
-        self.classify_peaks(fsr, num_of_rings, init_frequency,diff_between_groups)
+        # self.classify_peaks(fsr, num_of_rings, init_frequency,diff_between_groups)
 
         #get parameters and save them
         self.get_analysis_spectrum_parameters()
@@ -115,7 +120,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                                     , analysis_spectrum_parameters=self.analysis_spectrum_parameters,
                                     spectrum_data=[self.interpolated_spectrum, self.scan_freqs, self.fit_res,
                                                    self.peaks, self.peaks_width],figure=self.lorenzian_fig)
-
     @classmethod
     def save_analyzed_data(self,dist_root,filename,analysis_spectrum_parameters, spectrum_data,figure):
         timestr = time.strftime("%Y%m%d-%H%M%S")
@@ -143,6 +147,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                  spectrum=spectrum_data)
 
 
+
     def classify_peaks(self,fsr, num_of_rings, init_frequency,diff_between_groups):
         '''
         classify peaks to their fsr and ring number
@@ -155,7 +160,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         classified_peaks = self.relate_pk_to_ring(init_frequency=init_frequency,num_of_rings=num_of_rings,fsr=fsr,diff_between_groups=diff_between_groups)
         return classified_peaks
 
-
     def divide_into_peak_groups(self,init_frequency,fsr):
         '''
         divides a group of oeaks intogroups of different resonances
@@ -167,7 +171,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         '''
         peak_groups = []
         fsr_init_freq = init_frequency
-        if self.peaks_fundamental_mode == {}:   #prevent an error when there is no fundamental mode peaks
+        if self.peaks_fundamental_mode == []:   #prevent an error when there is no fundamental mode peaks
             return peak_groups
         while fsr_init_freq<self.scan_freqs[self.peaks_fundamental_mode[0]] :
             peak_groups.append([peak for peak in self.peaks_fundamental_mode if fsr_init_freq<self.scan_freqs[peak]<(fsr_init_freq+fsr)])
@@ -177,9 +181,9 @@ class AnalyzeSpectrum(TransmissionSpectrum):
     def relate_pk_to_ring(self,init_frequency,fsr,num_of_rings,diff_between_groups):
         '''
 
-        relates peaks of fundamental mode to thier ring.
-        peak_group_relative_dist - the peaksdivided to fsr and each group includes the distance from initial frequency of fsr
-        diff_between_groups - the maximal distance in  THz between peaks from different groups related to the same ring
+        relates peaks of fundamental mode to their ring.
+        peak_group_relative_dist - the peaks divided to fsr and each group includes the distance from initial frequency of fsr
+        diff_between_groups - the maximal distance in THz between peaks from different groups related to the same ring
         :return: classified_peaks - a group of cpouples: (ring,peak)
 
         '''
@@ -255,7 +259,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         high_mode = [widths_high_mode, peaks_high_mode, peaks_high_mode_ind]
 
         return fundamental_mode,high_mode
-
     @classmethod
     def plot_peaks(self,scan_freqs,interpolated_spectrum,peaks_per_mode):
         plt.figure()
@@ -271,9 +274,13 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         for i in range(len(self.peaks_per_mode)):
             plt.plot(self.scan_freqs[self.peaks_per_mode[i]], self.interpolated_spectrum[self.peaks_per_mode[i]], 'o')
         for i in range(len(self.fit_res)):
+            if len(self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase )):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))]) == 0:
+                fix_normalitation = 1
+            else:
+                fix_normalitation = np.max(self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase )):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))])
             plt.plot(self.scan_freqs[
                      (self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase )):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase ))],
-                     self.Lorenzian(self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase )):(
+                     fix_normalitation*self.Lorenzian(self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase )):(
                              self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))], *self.fit_res[i]), 'r-')
 
     # needed to be class method so it can be called without generating an instance
@@ -284,12 +291,12 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         :return:
         '''
         decimated_total_spectrum = spectrum[0:-1:decimation]
-        decimated_scanned_wavelengths= wavelengths[0:-1:decimation]
+        decimated_scanned_wavelengths = wavelengths[0:-1:decimation]
 
         cs = CubicSpline(decimated_scanned_wavelengths, decimated_total_spectrum)
         interpolated_spectrum = cs(wavelengths)
         norm_interpolated_spectrum = interpolated_spectrum/max(interpolated_spectrum)
-        return norm_interpolated_spectrum
+        return norm_interpolated_spectrum,interpolated_spectrum
 
     # needed to be class method so it can be called without generating an instance
     @classmethod
@@ -329,20 +336,26 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         fit_quality = []
         for i in range(len(self.peaks)):
             # initial guess
-            kappa_guess = self.scan_freqs[self.peaks_width[3][i].astype(int)]-self.scan_freqs[self.peaks_width[2][i].astype(int)] # a guess for the aprrox width of the lorenzian [THz]
+            kappa_guess = abs(self.scan_freqs[self.peaks_width[3][i].astype(int)]-self.scan_freqs[self.peaks_width[2][i].astype(int)]) # a guess for the aprrox width of the lorenzian [THz]
             x_dc_guess = self.scan_freqs[self.peaks[i]] # a guess for the central frequency [THz]
             y_dc_guess = self.peaks_properties["prominences"][i]+self.interpolated_spectrum[self.peaks[i]]
             amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
             initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,amp_guess,0])
-            self.width_increase = 1.2
-            init_data_range = np.maximum(0,(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase)))
-            final_data_range = np.minimum(len(self.scan_freqs),(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase)))
-            x_data = self.scan_freqs[init_data_range:final_data_range]
-            y_data =  self.interpolated_spectrum[init_data_range:final_data_range]
+            self.width_increase = 3
+
+            # make sure the start index of x_data and y_data isn't lower than 0
+            if self.peaks[i] < int(self.peaks_width[0][i]*self.width_increase):
+                start_index = 0;
+            else:
+                start_index = (self.peaks[i] - int(self.peaks_width[0][i] * self.width_increase))
+
+            x_data = self.scan_freqs[start_index:(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))]
+            y_data =  self.interpolated_spectrum_unNorm[start_index:(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))]
             try:
                 popt, pcov = curve_fit(self.Lorenzian, x_data,
-                                      y_data,bounds=([0,0,0,y_dc_guess*0.9,amp_guess/3,0],
-                                                     [1e3, 1e3,1e5, y_dc_guess*1.1,amp_guess*3,1]), p0=initial_guess)
+                                      y_data/max(y_data),
+                                      bounds=([0,0,0,y_dc_guess*0.5,amp_guess/3,0], [1e3,1e3,500, 1,amp_guess*3,1]), p0=initial_guess)
+
                 fit_parameters.append(popt)
                 fit_quality.append(np.sqrt(np.diag(pcov)))
             except Exception:
@@ -378,20 +391,22 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         :return: freqs - in Thz
         '''
         freqs = (C_light * 1e-12) / (scan_wavelengths * 1e-9)
-        freqs = np.flip(freqs)
+        #freqs = np.flip(freqs)
         return freqs
 
     def Lorenzian(self,x, kex, ki, x_dc, y_dc,amp,h):
-        return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
+        #return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
+        #return abs((1 - 2 * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2))) ** 2
+        return (1 -abs( 2 * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2)
 
-    def invert_decimation_from_freq_to_samples(self):
-        avg_freqs_diff_between_samples = np.mean(np.diff(self.scan_freqs))   # in THz
-        avg_freqs_diff_between_samples = avg_freqs_diff_between_samples*1e3  # in GHz
-        print("what is the resolution in GHz? (The current resolution is %.2f GHz)" % avg_freqs_diff_between_samples)
-        # resolution_in_GHz = float(input())
-        resolution_in_GHz = 0.8
+    def invert_decimatiom_from_freq_to_samples(self):
+        avg_freqs_diff_between_samples = abs(np.mean(np.diff(self.scan_freqs)))  #in THz
+        avg_freqs_diff_between_samples = avg_freqs_diff_between_samples*1e3 #in GHz
+        print("what is the resolution, in GHz (The current resolution is %.2f GHz)?" % avg_freqs_diff_between_samples)
+        resolution_in_GHz = float(input())
         resolution_in_samples = int(np.ceil(resolution_in_GHz/avg_freqs_diff_between_samples))
         return resolution_in_samples
+
 
 if __name__ == "__main__":
     print("Do you want to run a frequency scan? (True/False)")
