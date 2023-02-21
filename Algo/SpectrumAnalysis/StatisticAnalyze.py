@@ -1,10 +1,15 @@
+
+from scipy.interpolate import CubicSpline
+from scipy.signal import peak_widths, find_peaks
+import numpy as np
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
+from TransmissionSpectrum import TransmissionSpectrum
 import os
 import time
 from AnalyzeSpectrum import AnalyzeSpectrum
-
-
-
+import csv
+from Utility_functions import bcolors
 
 
 class StatisticAnalyze(AnalyzeSpectrum):
@@ -23,18 +28,18 @@ class StatisticAnalyze(AnalyzeSpectrum):
         :param run_experiment: bool between running an experiment via Analyze spectrum or just analyzing loaded data.
         :param division_width_between_modes:the frequency whoch divides the modes [Thz]
         '''
-
         # :param max_diff_between_widths_coeff:the maximum difference between widths of modes to be considered as a group of same mode
 
         # print("what is the full path of the chip's data?")
         # saved_file_root = input()
-        self.saved_file_root = r'C:\Users\asafs\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic'
+        self.saved_file_root = r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic'
         # load_filename = r'20230110-102329Test.npz'
 
 
         chip_types_names = os.listdir(self.saved_file_root)
 
         self.chips_dictionary = {}
+        self.excel_contant = ""
 
         for elem in chip_types_names:
         #for elem in ["01A3"]:    # fast version for debug
@@ -44,8 +49,8 @@ class StatisticAnalyze(AnalyzeSpectrum):
             for chip in chip_number_names:
             #for chip in ["chip2"]:     # fast version for debug
                 waveguides_dictionary_data = self.all_wg_of_singel_chip(dist_root_=os.path.join(single_chip_type_name, chip))
-                self.chips_dictionary[chip] = waveguides_dictionary_data
-
+                self.chips_dictionary[chip, elem] = waveguides_dictionary_data
+                self.excel_contant = self.excel_contant+elem+"-"+chip+","
 
         self.save_statistics()
 
@@ -58,6 +63,7 @@ class StatisticAnalyze(AnalyzeSpectrum):
                 self.wg_names.append(r'W'+str(j)+'-'+str(i).zfill(2))
         for name in self.wg_names:
             analysis_path = dist_root_ + '\\' + name
+            print(analysis_path[-16:]+":")
             re_analyze = 0
             while re_analyze == 0:
                 super().__init__(run_experiment="false", saved_file_root=analysis_path)
@@ -67,22 +73,26 @@ class StatisticAnalyze(AnalyzeSpectrum):
             self.waveguides_dictionary[name] = self.analysis_spectrum_parameters
 
 
+
+
         return self.waveguides_dictionary
 
     def save_statistics(self):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         # create excel file
-        analysis_path_with_time = os.path.join(r'C:\Users\asafs\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\statistic_scans_results',timestr)
+        analysis_path_with_time = os.path.join(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statistic_scans_results',self.excel_contant+timestr)
         prameters_csv = os.path.join(analysis_path_with_time+'.csv')
         with open(prameters_csv, 'w') as f:
+            f.write("File Contant:,")
+            f.write("%s\n\n" % self.excel_contant)
 
-            f.write("%s,%s,%s,%s,%s,%s,%s \n" % ("mode[THz]","peak_freq[GHz]","kappa_ex[GHz]","kappa_i[GHz]","h","wave_guide", "chip number"))
+            f.write("%s,%s,%s,%s,%s,%s,%s, %s \n" % ("mode[THz]","peak_freq[GHz]","kappa_ex[GHz]","kappa_i[GHz]","h","wave_guide","chip number", "wayfer"))
             for chip_name in self.chips_dictionary.keys():
                 for wg_name in self.chips_dictionary[chip_name]:
                     for i in range(len(self.chips_dictionary[chip_name][wg_name]["mode[THz]"])):
                         for wg_character in self.chips_dictionary[chip_name][wg_name]:
                             f.write("%s," % self.chips_dictionary[chip_name][wg_name][wg_character][i])
-                        f.write("%s, %s\n" % (wg_name, chip_name))
+                        f.write("%s, %s, _%s\n" % (wg_name, chip_name[0], chip_name[1]))
 
 
 if __name__ == "__main__":
