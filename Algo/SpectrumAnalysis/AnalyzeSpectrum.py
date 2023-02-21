@@ -32,10 +32,14 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         '''
         # :param max_diff_between_widths_coeff:the maximum difference between widths of modes to be considered as a group of same mode
         if run_experiment == 'True' or run_experiment == '1' or run_experiment == 'true':
+            if saved_file_root == None:
+                print("what is the full path of the waveguide?")
+                saved_file_root = input()
             super().__init__()
             self.get_wide_spectrum(parmeters_by_console=True)
             decimation_in_samples_for_scan = 10
             self.plot_spectrum(self.total_spectrum,decimation=decimation_in_samples_for_scan)
+
             np_root =self.save_figure_and_data(saved_file_root,
                                    self.total_spectrum,decimation_in_samples_for_scan,'')
             self.Pico.__del__()
@@ -261,12 +265,13 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         return fundamental_mode,high_mode
     @classmethod
     def plot_peaks(self,scan_freqs,interpolated_spectrum,peaks_per_mode):
-        plt.figure()
+        peaks_fig = plt.figure()
         plt.plot(scan_freqs, interpolated_spectrum)
         for i in range(len(peaks_per_mode)):
             plt.plot(scan_freqs[peaks_per_mode[i]], interpolated_spectrum[peaks_per_mode[i]], 'o')
         plt.pause(0.1)
         plt.show(block=False)
+        return peaks_fig
 
     def plot_lorenzians(self):
         self.lorenzian_fig = plt.figure()

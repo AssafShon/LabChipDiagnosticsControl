@@ -1,0 +1,95 @@
+
+
+# This function will optimize the coupling of a waveguide after we can see basic coupling in the pico scope
+
+
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+import time
+from scipy import signal
+import os
+
+from BasicInstrumentsControl.PicoControl.PicoControl import PicoControl as Pico
+from BasicInstrumentsControl.PicoControl.PicoControl import PicoScopeControl as Scope
+from BasicInstrumentsControl.PicoControl.PicoControl import PicoSigGenControl as SigGen
+from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
+
+if Python_Control:
+     #connect to instruments
+     self.Pico = Pico()
+     self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE')
+     self.Scope = Scope(pico=self.Pico)
+     self.Laser = Laser()
+
+
+# PARAMETERS
+WAIT_TIME = 1
+CH_A=0
+CH_B = 1
+
+def optimize_on_axis(axis m, bounds=(low_bound, high_bound))
+    self.Scope.get_trace()[CH_B])
+
+class TransmissionSpectrum:
+    def __init__(self,init_wavelength = 772,final_wavelength = 781,Python_Control = True):
+        '''
+
+        :param directory: directory to load traces (relevant when Python_Control=False)
+        :param init_wavelength: initial wavelength for scan [nm]
+        :param final_wavelength:
+        :param Python_Control:
+        :param decimation:
+        '''
+        from BasicInstrumentsControl.PicoControl.PicoControl import PicoControl as Pico
+        from BasicInstrumentsControl.PicoControl.PicoControl import PicoScopeControl as Scope
+        from BasicInstrumentsControl.PicoControl.PicoControl import PicoSigGenControl as SigGen
+        from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
+
+        if Python_Control:
+            #connect to instruments
+            self.Pico = Pico()
+            self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE')
+            self.Scope = Scope(pico=self.Pico)
+            self.Laser = Laser()
+
+            # define variables
+            self.final_wavelength = final_wavelength
+            self.init_wavelength = init_wavelength
+            self.single_scan_width = self.SigGen.calculate_scan_width()
+            print('The scan width in nm is:', self.single_scan_width)
+            self.Laser.tlb_set_wavelength(self.init_wavelength)
+
+            self.partial_spectrum = []
+
+
+
+    def get_wide_spectrum(self,parmeters_by_console):
+        if parmeters_by_console:
+            print("Enter initial wavelength for scan in [nm]:")
+            self.init_wavelength = float(input())
+
+            self.Laser.tlb_set_wavelength(self.init_wavelength)
+
+            print("Enter final wavelength for scan in [nm]:")
+            self.final_wavelength = float(input())
+
+
+        time.sleep(5*WAIT_TIME)
+
+        # jump between wavelengths and take traces
+        for i in np.arange(self.init_wavelength, self.final_wavelength, self.single_scan_width):
+            self.Laser.tlb_set_wavelength(i)
+            # added wait time to make sure the laser moved to it's new wavelength
+            time.sleep(WAIT_TIME)
+            # # first scan to calibrate the range
+            # self.Scope.calibrate_range()
+            # take trace from the scope
+            self.partial_spectrum.append(self.Scope.get_trace()[CH_B])# + self.Scope.calibrate_trace_avg_voltage * 1000)
+            # patch the traces
+        self.total_spectrum = np.concatenate(self.partial_spectrum)
+        self.total_spectrum = [float(item) for item in self.total_spectrum]
+        self.total_spectrum = np.array(self.total_spectrum)
+
+        # create vector of wavelengths in the scan
+        self.find_wavelength_scanned()
