@@ -8,6 +8,11 @@ import matplotlib.pyplot as plt
 
 class KeithleyPwrSupplyControl():
     def __init__(self,channel=1, current_lim=10):
+        '''
+
+        :param channel: set the channel at the keithley(1-3)
+        :param current_lim: the current limit to the heater in mA
+        '''
         self.rm = pyvisa.ResourceManager()
         self.keithley = self.KEI2231_Connect(rsrcString='ASRL4::INSTR',getIdStr=1, timeout=20000, doRst=1)
         self.channel = channel
