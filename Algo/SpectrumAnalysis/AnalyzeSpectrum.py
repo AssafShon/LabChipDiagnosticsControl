@@ -79,8 +79,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.scan_freqs = self.get_scan_freqs(self.scan_wavelengths)
 
 
-        # smooth spectrum and normalize it
-        decimation = self.invert_decimatiom_from_freq_to_samples()
+        #smooth spectrum and normalize it
+        decimation = self.invert_decimatiom_from_freq_to_samples()    # this decimation is for the Analysis
         [self.interpolated_spectrum,self.interpolated_spectrum_unNorm] = self.smooth_and_normalize_spectrum(decimation, spectrum =self.total_spectrum, wavelengths=self.scan_wavelengths)
 
         # find peaks and divide to different modes
@@ -245,6 +245,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         print("list of peaks widths-  width [GHz] : number of peaks\n"+str(sorted_widths_dictionary))
         print("choose width value for division between modes:")
         division_value = int(input())
+        plt.close('all')
         return division_value / 1000
 
 
@@ -354,8 +355,10 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             y_dc_guess = self.peaks_properties["prominences"][i]+self.interpolated_spectrum[self.peaks[i]]
             amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
             initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,amp_guess,0])
-            #a = self.curve_fit_for_diff_base_widths(kappa_guess, x_dc_guess, y_dc_guess, amp_guess, initial_guess, i, fit_parameters, fit_quality)
-            self.width_increase = 2
+
+            # self.width_increase = 1.7
+            self.width_increase = self.curve_fit_for_diff_base_widths(kappa_guess, x_dc_guess, y_dc_guess, amp_guess, initial_guess, i,
+                                           fit_parameters, fit_quality)
 
             # make sure the start ind.2ex of x_data and y_data isn't lower than 0
             if self.peaks[i] < int(self.peaks_width[0][i] * self.width_increase):
@@ -366,9 +369,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             x_data = self.scan_freqs[start_index:(self.peaks[i] + int(self.peaks_width[0][i] * self.width_increase))]
             y_data = self.interpolated_spectrum_unNorm[
                      start_index:(self.peaks[i] + int(self.peaks_width[0][i] * self.width_increase))]
-
-            self.curve_fit_for_diff_base_widths(kappa_guess, x_dc_guess, y_dc_guess, amp_guess, initial_guess, i,
-                                           fit_parameters, fit_quality)
 
             try:
                 popt, pcov = curve_fit(self.Lorenzian, x_data,
@@ -395,7 +395,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         the best fit = ???
         '''
         width_increase = 2.5
-        cov_values = []
+        cov_values = {}
         stop = 0
         while width_increase > 1 and stop == 0:
             # make sure the start ind.2ex of x_data and y_data isn't lower than 0
@@ -416,28 +416,29 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
                 fit_parameters.append(popt)
                 fit_quality.append(np.sqrt(np.diag(pcov)))
-                cov_values.append(width_increase)
                 error_vec = self.Lorenzian(x_data, popt[0],popt[1],popt[2],popt[3],popt[4],popt[5])-(y_data / max(y_data))
-                cov_values.append(sum(error_vec**2))
+                cov_values[width_increase] = sum(error_vec ** 2)
 
                 # plot the fit and the real data for a single peak and width_increase val
                 plt.figure()
                 plt.plot(self.Lorenzian(x_data, popt[0],popt[1],popt[2],popt[3],popt[4],popt[5]),'g')
                 plt.plot(y_data / max(y_data), 'r')
-                plt.ylabel('Lorenzian fit for width increase '+str(width_increase))
+                plt.title('Lorenzian fit for width increase '+str(width_increase))
                 plt.pause(0.1)
                 plt.show(block=False)
                 print("Is the fit ok? [1-yes, 0-no, try small width]")
                 stop = int(input())
+
 
             except Exception:
                 print(bcolors.WARNING + "Warning: peak number " + str(
                     i) + " could not be fitted to lorenzian" + bcolors.ENDC)
                 fit_parameters.append(0 * np.zeros(6))
                 fit_quality.append(np.sqrt(np.diag(0 * np.zeros((6, 6)))))
-            width_increase = width_increase - 0.3
 
-        return cov_values
+            width_increase = width_increase - 0.3
+        plt.close('all')
+        return min(cov_values, key=cov_values.get)
 
 
     def get_analysis_spectrum_parameters(self):
@@ -449,7 +450,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.analysis_spectrum_parameters['kappa_ex[GHz]'] = [round(self.fit_res[i][0]*1e3,3) for i in range(len(self.fit_res))]
         self.analysis_spectrum_parameters['kappa_i[GHz]'] = [round(self.fit_res[i][1]*1e3,3) for i in range(len(self.fit_res))]
         self.analysis_spectrum_parameters['h'] = [round(self.fit_res[i][5]*1e3,3) for i in range(len(self.fit_res))]
-        # The FWHM is the width in 0.5 peaks height
+        # The FWHM is the width in 0.5 peaks height, define with 'rel_height'
         self.analysis_spectrum_parameters['FWHM[GHz]'] = [round(self.peaks_width_in_Thz[i]*1e3,3) for i in range(len(self.peaks_width_in_Thz))]
         # self.analysis_spectrum_parameters['standard deviation of kappa_ex'] = [self.fit_cov_params[i][0] for i in range(len(self.fit_cov_params))]
         # self.analysis_spectrum_parameters['standard deviation of kappa_i'] = [self.fit_cov_params[i][1] for i in range(len(self.fit_cov_params))]
