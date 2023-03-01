@@ -7,6 +7,7 @@ from collections import Counter
 from TransmissionSpectrum import TransmissionSpectrum
 import os
 import time
+import math
 import csv
 from Utility_functions import bcolors
 
@@ -356,9 +357,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
             initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,amp_guess,0])
 
-            # self.width_increase = 1.7
-            self.width_increase = self.curve_fit_for_diff_base_widths(kappa_guess, x_dc_guess, y_dc_guess, amp_guess, initial_guess, i,
-                                           fit_parameters, fit_quality)
+            self.width_increase = 1.7
+            # self.width_increase = self.curve_fit_for_diff_base_widths(kappa_guess, x_dc_guess, y_dc_guess, amp_guess, initial_guess, i)
 
             # make sure the start ind.2ex of x_data and y_data isn't lower than 0
             if self.peaks[i] < int(self.peaks_width[0][i] * self.width_increase):
@@ -389,15 +389,15 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 fit_quality.append(np.sqrt(np.diag(0 * pcov)))
         return [fit_parameters, fit_quality]
 
-    def curve_fit_for_diff_base_widths(self,kappa_guess,x_dc_guess,y_dc_guess,amp_guess,initial_guess, i, fit_parameters, fit_quality):
+    def curve_fit_for_diff_base_widths(self,kappa_guess,x_dc_guess,y_dc_guess,amp_guess,initial_guess, i):
         '''
         change the width of x_data and y_data for the curve_fit function and choose the best fit
         the best fit = ???
         '''
-        width_increase = 2.5
+        width_increase = 4
         cov_values = {}
         stop = 0
-        while width_increase > 1 and stop == 0:
+        while width_increase >= 1 and stop == 0:
             # make sure the start ind.2ex of x_data and y_data isn't lower than 0
             if self.peaks[i] < int(self.peaks_width[0][i] * width_increase):
                 start_index = 0;
@@ -414,29 +414,27 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                                        bounds=([0, 0, 0, y_dc_guess * 0.5, amp_guess / 3, 0],
                                                [1e3, 1e3, 1e3, 1, amp_guess * 3, 1]), p0=initial_guess)
 
-                fit_parameters.append(popt)
-                fit_quality.append(np.sqrt(np.diag(pcov)))
                 error_vec = self.Lorenzian(x_data, popt[0],popt[1],popt[2],popt[3],popt[4],popt[5])-(y_data / max(y_data))
                 cov_values[width_increase] = sum(error_vec ** 2)
 
                 # plot the fit and the real data for a single peak and width_increase val
-                plt.figure()
-                plt.plot(self.Lorenzian(x_data, popt[0],popt[1],popt[2],popt[3],popt[4],popt[5]),'g')
-                plt.plot(y_data / max(y_data), 'r')
-                plt.title('Lorenzian fit for width increase '+str(width_increase))
-                plt.pause(0.1)
-                plt.show(block=False)
-                print("Is the fit ok? [1-yes, 0-no, try small width]")
-                stop = int(input())
+                #plt.figure()
+                #plt.plot(self.Lorenzian(x_data, popt[0],popt[1],popt[2],popt[3],popt[4],popt[5]),'g')
+                #plt.plot(y_data / max(y_data), 'r')
+                #plt.title('Lorenzian fit for width increase '+str(width_increase))
+                #plt.pause(0.1)
+                #plt.show(block=False)
+
+                # print("Is the fit ok? [1-yes, 0-no, try small width]")
+                # stop = int(input())
 
 
             except Exception:
-                print(bcolors.WARNING + "Warning: peak number " + str(
+                print(bcolors.WARNING + "For width_increase:" + str(width_increase) + ", peak number " + str(
                     i) + " could not be fitted to lorenzian" + bcolors.ENDC)
-                fit_parameters.append(0 * np.zeros(6))
-                fit_quality.append(np.sqrt(np.diag(0 * np.zeros((6, 6)))))
 
-            width_increase = width_increase - 0.3
+
+            width_increase = round(width_increase - 0.2,2)
         plt.close('all')
         return min(cov_values, key=cov_values.get)
 
