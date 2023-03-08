@@ -90,11 +90,11 @@ assert_pico_ok(status["setTrigCond"])
 # set trigger directions
 # handle = chandle
 channelADirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_RISING"]
-channelBDirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_NONE"]
-channelCDirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_NONE"]
-channelDDirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_NONE"]
-extDirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_NONE"]
-auxDirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_NONE"]
+channelBDirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_RISING"]
+channelCDirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_RISING"]
+channelDDirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_RISING"]
+extDirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_RISING"]
+auxDirection = ps.PS3000A_THRESHOLD_DIRECTION["PS3000A_RISING"]
 status["setTrigDir"] = ps.ps3000aSetTriggerChannelDirections(chandle, channelADirection, channelBDirection, channelCDirection, channelDDirection, extDirection, auxDirection)
 assert_pico_ok(status["setTrigDir"])
 

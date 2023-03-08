@@ -163,6 +163,45 @@ ps3000a.PS3000A_THRESHOLD_MODE = make_enum([
     "PS3000A_WINDOW"
     ])
 
+ps3000a.PS3000A_WAVE_TYPE = make_enum([
+	'PS3000A_SINE',
+	'PS3000A_SQUARE',
+	'PS3000A_TRIANGLE',
+	'PS3000A_RAMP_UP',
+	'PS3000A_RAMP_DOWN',
+	'PS3000A_SINC',
+	'PS3000A_GAUSSIAN',
+	'PS3000A_HALF_SINE',
+	'PS3000A_DC_VOLTAGE',
+	'PS3000A_WHITE_NOISE',
+	'PS3000A_MAX_WAVE_TYPES',
+])
+
+
+ps3000a.PS3000A_SWEEP_TYPE = make_enum([
+	'PS3000A_UP',
+	'PS3000A_DOWN',
+	'PS3000A_UPDOWN',
+	'PS3000A_DOWNUP',
+	'PS3000A_MAX_SWEEP_TYPES',
+])
+
+ps3000a.PS3000A_SIGGEN_TRIG_TYPE = make_enum([
+	'PS3000A_SIGGEN_RISING',
+	'PS3000A_SIGGEN_FALLING',
+	'PS3000A_SIGGEN_GATE_HIGH',
+	'PS3000A_SIGGEN_GATE_LOW',
+])
+
+ps3000a.PS3000A_SIGGEN_TRIG_SOURCE = make_enum([
+	'PS3000A_SIGGEN_NONE',
+	'PS3000A_SIGGEN_SCOPE_TRIG',
+	'PS3000A_SIGGEN_AUX_IN',
+	'PS3000A_SIGGEN_EXT_IN',
+	'PS3000A_SIGGEN_SOFT_TRIG',
+])
+
+
 class PS3000A_DIGITAL_CHANNEL_DIRECTIONS(Structure):
     _pack_ = 1
     _fields_ = [("channel", c_int32),
@@ -330,7 +369,7 @@ doc = """ PICO_STATUS ps3000aSetSigGenArbitrary
         uint32_t                    stopDeltaPhase,
         uint32_t                    deltaPhaseIncrement,
         uint32_t                    dwellCount,
-        int16_t                    *arbitraryWaveform,
+        int16_t                    *arbitrary_form,
         int32_t                     arbitraryWaveformSize,
         PS3000A_SWEEP_TYPE          sweepType,
         PS3000A_EXTRA_OPERATIONS    operation,

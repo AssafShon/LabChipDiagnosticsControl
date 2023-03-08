@@ -69,6 +69,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # load saved data
         data = np.load(np_root)
         self.total_spectrum = data['spectrum']
+        # compensation for the photodiode minimum value
+        self.total_spectrum = self.total_spectrum - 18
         self.scan_wavelengths = data['wavelengths']
 
         # plot original data before analysis
@@ -89,7 +91,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.peaks_width_in_Thz_negative = [self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i]/2))] -
                                    self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]/2))] for i in range(len(self.peaks))]
         self.peaks_width_in_Thz = [abs(value) for value in self.peaks_width_in_Thz_negative]
-        division_width_between_modes = self.division_width_choose()
+        # division_width_between_modes = self.division_width_choose()
+        division_width_between_modes = 6/1000;
 
         #divide different modes
         self.fundamental_mode,self.high_mode =self.divide_to_different_modes(peaks=self.peaks,division_width_between_modes = division_width_between_modes,modes_width =self.peaks_width_in_Thz )
@@ -132,7 +135,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
 
     @classmethod
-    def save_analyzed_data(self,dist_root,filename,analysis_spectrum_parameters, spectrum_data,figure):
+    def save_analyzed_data(self,dist_root,filename,analysis_spectrum_parameters, spectrum_data,figure, width_fig=None):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         # create directory
         analysis_path = dist_root+r'\analysis'
@@ -143,6 +146,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         os.mkdir(analysis_path_with_time)
         # save figure
         figure.savefig(os.path.join(analysis_path_with_time,timestr+filename+'.png'))
+        if width_fig!=None:
+            width_fig.savefig(os.path.join(analysis_path_with_time, timestr + filename + 'colored_widths.png'))
         # save data as csv
         if not analysis_spectrum_parameters is None:
             prameters_csv = os.path.join(analysis_path_with_time,'parameters_'+timestr+filename+'.csv')
@@ -300,10 +305,10 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
     @classmethod
     def plot_peaks_colored_by_width(self,ax,peaks_freqs,Y,colors):
-    '''
-    plot peaks colored by width
-    '''
-        ax.scatter(peaks_freqs,Y, colors)
+        '''
+        plot peaks colored by width
+        '''
+        ax.scatter(peaks_freqs,Y, c=colors)
 
     # needed to be class method so it can be called without generating an instance
     @classmethod
@@ -366,8 +371,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
             initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,amp_guess,0])
 
-            self.width_increase = 1.7
-            # self.width_increase = self.curve_fit_for_diff_base_widths(kappa_guess, x_dc_guess, y_dc_guess, amp_guess, initial_guess, i)
+            # self.width_increase = 1.7
+            self.width_increase = self.curve_fit_for_diff_base_widths(kappa_guess, x_dc_guess, y_dc_guess, amp_guess, initial_guess, i)
 
             # make sure the start ind.2ex of x_data and y_data isn't lower than 0
             if self.peaks[i] < int(self.peaks_width[0][i] * self.width_increase):
@@ -433,15 +438,13 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 #plt.title('Lorenzian fit for width increase '+str(width_increase))
                 #plt.pause(0.1)
                 #plt.show(block=False)
-
                 # print("Is the fit ok? [1-yes, 0-no, try small width]")
                 # stop = int(input())
 
 
             except Exception:
-                print(bcolors.WARNING + "For width_increase:" + str(width_increase) + ", peak number " + str(
+                print(bcolors.WARNING + "For width_increase = " + str(width_increase) + ", peak number " + str(
                     i) + " could not be fitted to lorenzian" + bcolors.ENDC)
-
 
             width_increase = round(width_increase - 0.2,2)
         plt.close('all')
@@ -489,8 +492,9 @@ class AnalyzeSpectrum(TransmissionSpectrum):
     def invert_decimatiom_from_freq_to_samples(self):
         avg_freqs_diff_between_samples = abs(np.mean(np.diff(self.scan_freqs)))  #in THz
         avg_freqs_diff_between_samples = avg_freqs_diff_between_samples*1e3 #in GHz
-        print("what is the resolution, in GHz (The current resolution is %.2f GHz)?" % avg_freqs_diff_between_samples)
-        resolution_in_GHz = float(input())
+        # print("what is the resolution, in GHz (The current resolution is %.2f GHz)?" % avg_freqs_diff_between_samples)
+        # resolution_in_GHz = float(input())
+        resolution_in_GHz = float(0.8)
         resolution_in_samples = int(np.ceil(resolution_in_GHz/avg_freqs_diff_between_samples))
         print("The resolution in samples is: " + str(resolution_in_samples))
         return resolution_in_samples

@@ -32,7 +32,7 @@ class StatisticAnalyze(AnalyzeSpectrum):
 
         # print("what is the full path of the chip's data?")
         # saved_file_root = input()
-        self.saved_file_root = r'C:\Users\DavidLahav\OneDrive - qs-labs\Lab\Chip Tester\Spectrum_transmission\Statstic'
+        self.saved_file_root = r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic'
         # load_filename = r'20230110-102329Test.npz'
 
 
@@ -58,19 +58,26 @@ class StatisticAnalyze(AnalyzeSpectrum):
         self.waveguides_dictionary = {}
 
         self.wg_names = []
-        for i in range(11, 13):
+        for i in range(11,13):
             for j in range(1, 2):
                 self.wg_names.append(r'W'+str(j)+'-'+str(i).zfill(2))
         for name in self.wg_names:
             analysis_path = dist_root_ + '\\' + name
             print(analysis_path[-16:]+":")
             re_analyze = 0
+            skip = 0
             while re_analyze == 0:
+                if not os.path.isdir(analysis_path):
+                    print('This WG scan don\'t exist')
+                    skip = 1
+                    break
                 super().__init__(run_experiment="false", saved_file_root=analysis_path)
-                print("Is the result okay? [0-No, return  1-Yes, move on]")
-                re_analyze = int(input())
+                # print("Is the result okay? [0-No, return  1-Yes, move on]")
+                # re_analyze = int(input())
+                re_analyze = 1
             plt.close('all')
-            self.waveguides_dictionary[name] = self.analysis_spectrum_parameters
+            if skip == 0:
+                self.waveguides_dictionary[name] = self.analysis_spectrum_parameters
 
 
 
@@ -86,7 +93,7 @@ class StatisticAnalyze(AnalyzeSpectrum):
             f.write("File Contant:,")
             f.write("%s\n\n" % self.excel_contant)
 
-            f.write("%s,%s,%s,%s,%s,%s,%s, %s \n" % ("mode[THz]","peak_freq[GHz]","kappa_ex[GHz]","kappa_i[GHz]","h","wave_guide","chip number", "wayfer"))
+            f.write("%s,%s,%s,%s,%s,%s,%s,%s, %s \n" % ("mode[THz]","peak_freq[GHz]","kappa_ex[GHz]","kappa_i[GHz]","h","FWHM[GHz]","wave_guide","chip number", "wayfer"))
             for chip_name in self.chips_dictionary.keys():
                 for wg_name in self.chips_dictionary[chip_name]:
                     for i in range(len(self.chips_dictionary[chip_name][wg_name]["mode[THz]"])):

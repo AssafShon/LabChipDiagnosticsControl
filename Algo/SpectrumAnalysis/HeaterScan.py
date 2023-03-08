@@ -10,7 +10,7 @@ WAIT_TIME = 5
 
 
 class HeaterScan(TransmissionSpectrum):
-    def __init__(self, max_current_scan=10e-3, num_of_points_in_scan=3, typ_noise_in_freq = 20e-3,
+    def __init__(self, max_current_scan=10e-3, num_of_points_in_scan=5, typ_noise_in_freq = 20e-3,
                  decimation=1000,division_width_between_modes = 8.0e-3 , saved_file_root =  r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\HeaterScan'):
         # running transmission spectrum init (connect pico and laser)
         super().__init__()
@@ -66,17 +66,17 @@ class HeaterScan(TransmissionSpectrum):
             #                        self.total_spectrum, 1000, 'Test',mkdir)
             peaks = self.analyze_spectrum(self.total_spectrum,idx,current,ax=ax_peaks_colored)
             self.all_peaks.append(self.scan_freqs[peaks])
-
-        self.heated_peak = self.find_heated_peak()
-        # pin heated peaks on spectrum
-        for i in range(len(self.spectrum_per_current)):
-            AnalyzeSpectrum.plot_peaks(scan_freqs=self.scan_freqs, interpolated_spectrum=self.spectrum_per_current[i][:-1],
-                                   peaks_per_mode=sum(self.heated_peaks_ind,[]))
-        # plot heated peak freq as function of current
-        plt.figure()
-        for i in range(len(self.heated_peak[0])):
-            plt.plot(self.heated_peak,self.currents_in_scan,label = 'peak '+str(i))
-            plt.legend()
+        #
+        # self.heated_peak = self.find_heated_peak()
+        # # pin heated peaks on spectrum
+        # for i in range(len(self.spectrum_per_current)):
+        #     AnalyzeSpectrum.plot_peaks(scan_freqs=self.scan_freqs, interpolated_spectrum=self.spectrum_per_current[i][:-1],
+        #                            peaks_per_mode=sum(self.heated_peaks_ind,[]))
+        # # plot heated peak freq as function of current
+        # plt.figure()
+        # for i in range(len(self.heated_peak[0])):
+        #     plt.plot(self.heated_peak,self.currents_in_scan,label = 'peak '+str(i))
+        #     plt.legend()
 
     def analyze_spectrum(self,spectrum,i,current,ax):
         '''
@@ -96,7 +96,7 @@ class HeaterScan(TransmissionSpectrum):
                                    self.scan_freqs[(peaks[i] - int(peaks_width[0][i] / 2))] for i in
                                    range(len(peaks))]
         # plot peaks colored by widths
-        AnalyzeSpectrum.plot_peaks_colored_by_width(ax=ax,peaks_freqs=self.scan_freqs[peaks],Y=current*len(peaks),colors=peaks_width)
+        AnalyzeSpectrum.plot_peaks_colored_by_width(ax=ax,peaks_freqs=self.scan_freqs[peaks],Y=[current]*len(peaks),colors=peaks_width[0])
 
         # divide different modes
         fundamental_mode,high_mode = AnalyzeSpectrum.divide_to_different_modes(peaks=peaks,
@@ -111,7 +111,7 @@ class HeaterScan(TransmissionSpectrum):
         AnalyzeSpectrum.save_analyzed_data(dist_root=self.saved_file_root,
                                            filename=r'Heater_Scan'+str(i)
                                 , analysis_spectrum_parameters=None,
-                                spectrum_data=[interpolated_spectrum, self.scan_freqs],figure=peaks_fig)
+                                spectrum_data=[interpolated_spectrum, self.scan_freqs],figure=peaks_fig, width_fig = fig_peaks_colored)
         return peaks_fundamental_mode
 
 

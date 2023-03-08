@@ -22,6 +22,8 @@ import os
 WAIT_TIME = 1
 CH_A=0
 CH_B = 1
+CH_C = 2
+
 
 
 
@@ -35,9 +37,9 @@ class TransmissionSpectrum:
         :param Python_Control:
         :param decimation:
         '''
-        from BasicInstrumentsControl.PicoControl.PicoControl import PicoControl as Pico
-        from BasicInstrumentsControl.PicoControl.PicoControl import PicoScopeControl as Scope
-        from BasicInstrumentsControl.PicoControl.PicoControl import PicoSigGenControl as SigGen
+        from BasicInstrumentsControl.PicoControl.PicoControl_4channels import PicoControl as Pico
+        from BasicInstrumentsControl.PicoControl.PicoControl_4channels import PicoScopeControl as Scope
+        from BasicInstrumentsControl.PicoControl.PicoControl_4channels import PicoSigGenControl as SigGen
         from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
 
         if Python_Control:
@@ -66,12 +68,10 @@ class TransmissionSpectrum:
             print("Enter initial wavelength for scan in [nm]:")
             self.init_wavelength = float(input())
 
-            self.Laser.tlb_set_wavelength(self.init_wavelength)
-
             print("Enter final wavelength for scan in [nm]:")
             self.final_wavelength = float(input())
 
-
+        self.Laser.tlb_set_wavelength(self.init_wavelength)
         time.sleep(5*WAIT_TIME)
 
         # jump between wavelengths and take traces
@@ -83,7 +83,8 @@ class TransmissionSpectrum:
             # self.Scope.calibrate_range()
             # take trace from the scope
             self.partial_spectrum.append(self.Scope.get_trace()[CH_B])# + self.Scope.calibrate_trace_avg_voltage * 1000)
-            # patch the traces
+            # self.partial_spectrum.append(self.Scope.get_trace()[CH_C])# + self.Scope.calibrate_trace_avg_voltage * 1000)
+            # patch the traces771 781
         self.total_spectrum = np.concatenate(self.partial_spectrum)
         self.total_spectrum = [float(item) for item in self.total_spectrum]
         self.total_spectrum = np.array(self.total_spectrum)
