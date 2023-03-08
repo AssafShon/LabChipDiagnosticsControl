@@ -32,7 +32,7 @@ class StatisticAnalyze(AnalyzeSpectrum):
 
         # print("what is the full path of the chip's data?")
         # saved_file_root = input()
-        self.saved_file_root = r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\Statstic'
+        self.saved_file_root = r'C:\Users\DavidLahav\OneDrive - qs-labs\Lab\Chip Tester\Spectrum_transmission\Statstic'
         # load_filename = r'20230110-102329Test.npz'
 
 
@@ -41,8 +41,8 @@ class StatisticAnalyze(AnalyzeSpectrum):
         self.chips_dictionary = {}
         self.excel_contant = ""
 
-        for elem in chip_types_names:
-        #for elem in ["01A3"]:    # fast version for debug
+        #for elem in chip_types_names:
+        for elem in ["01A3"]:    # fast version for debug
             single_chip_type_name = os.path.join(self.saved_file_root, elem)
             chip_number_names = os.listdir(single_chip_type_name)
 
@@ -58,7 +58,7 @@ class StatisticAnalyze(AnalyzeSpectrum):
         self.waveguides_dictionary = {}
 
         self.wg_names = []
-        for i in range(9, 11):
+        for i in range(11, 13):
             for j in range(1, 2):
                 self.wg_names.append(r'W'+str(j)+'-'+str(i).zfill(2))
         for name in self.wg_names:
