@@ -129,6 +129,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                                     , analysis_spectrum_parameters=self.analysis_spectrum_parameters,
                                     spectrum_data=[self.interpolated_spectrum, self.scan_freqs, self.fit_res,
                                                    self.peaks, self.peaks_width],figure=self.lorenzian_fig)
+
+
     @classmethod
     def save_analyzed_data(self,dist_root,filename,analysis_spectrum_parameters, spectrum_data,figure):
         timestr = time.strftime("%Y%m%d-%H%M%S")
@@ -295,6 +297,13 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                      (self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase )):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase ))],
                      fix_normalitation*self.Lorenzian(self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase )):(
                              self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase))], *self.fit_res[i]), 'r-')
+
+    @classmethod
+    def plot_peaks_colored_by_width(self,ax,peaks_freqs,Y,colors):
+    '''
+    plot peaks colored by width
+    '''
+        ax.scatter(peaks_freqs,Y, colors)
 
     # needed to be class method so it can be called without generating an instance
     @classmethod
