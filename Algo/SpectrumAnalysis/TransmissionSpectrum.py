@@ -97,7 +97,7 @@ class TransmissionSpectrum:
             self.total_spectrum)
         self.scan_wavelengths = (m_wavenumber_transmitted * np.arange(0, len(self.total_spectrum)) + (
                     self.init_wavelength - self.single_scan_width / 2))
-        self.scan_wavelengths = self.scan_wavelengths[0:-1]
+        # self.scan_wavelengths = self.scan_wavelengths[0:-1]
 
     def read_csv(self, filename):
         csv_data = pd.read_csv(filename, sep=',', header=None)

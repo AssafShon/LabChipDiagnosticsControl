@@ -163,8 +163,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         np.savez(os.path.join(analysis_path_with_time, 'spectrum_data_'+timestr + filename + '.npz'),
                  spectrum=spectrum_data)
 
-
-
     def classify_peaks(self,fsr, num_of_rings, init_frequency,diff_between_groups):
         '''
         classify peaks to their fsr and ring number
@@ -257,7 +255,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         plt.close('all')
         return division_value / 1000
 
-
     @classmethod
     def divide_to_different_modes(self,peaks,modes_width, division_width_between_modes):  # max_diff_between_widths_coeff=0.1):
         '''
@@ -279,6 +276,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         high_mode = [widths_high_mode, peaks_high_mode, peaks_high_mode_ind]
 
         return fundamental_mode,high_mode
+
     @classmethod
     def plot_peaks(self,scan_freqs,interpolated_spectrum,peaks_per_mode):
         peaks_fig = plt.figure()
@@ -310,6 +308,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         plot peaks colored by width
         '''
         ax.scatter(peaks_freqs,Y, c=colors)
+
 
     # needed to be class method so it can be called without generating an instance
     @classmethod
@@ -453,7 +452,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         plt.close('all')
         return min(cov_values, key=cov_values.get)
 
-
     def get_analysis_spectrum_parameters(self):
         # generates a list of resonances with all parameters
         self.analysis_spectrum_parameters = {}
@@ -490,7 +488,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         #return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
         #return abs((1 - (2 * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)))) ** 2
         return (1 -abs( 2 * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2)
-
 
     def invert_decimatiom_from_freq_to_samples(self):
         avg_freqs_diff_between_samples = abs(np.mean(np.diff(self.scan_freqs)))  #in THz

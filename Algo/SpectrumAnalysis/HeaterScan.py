@@ -31,7 +31,7 @@ class HeaterScan(TransmissionSpectrum):
         self.division_width_between_modes = division_width_between_modes
         self.saved_file_root = saved_file_root
         if wide_scan_bounds is None:
-            wide_scan_bounds = [772, 776]
+            wide_scan_bounds = [771.5, 777]
 
         # init pwr supply params
         self.PowerSupply.SetCurrent(0)
@@ -40,6 +40,8 @@ class HeaterScan(TransmissionSpectrum):
 
         # find fsr bounds
         self.find_fsr_wvlnth_bounds(wide_scan_bounds)
+        # self.init_wavelength = 773.2
+        # self.final_wavelength = 775.8
 
         self.scan_current_to_heater()
 
@@ -58,11 +60,12 @@ class HeaterScan(TransmissionSpectrum):
         self.final_wavelength = wide_scan_bounds[1]
         self.get_wide_spectrum(parmeters_by_console=False)
         self.plot_transmission_spectrum(self.total_spectrum, decimation=1)
+        plt.pause(0.1)
+        plt.show(block=False)
         print('choose init wavelength of FSR:')
-        self.init_wavelength=input()
+        self.init_wavelength=float(input())
         print('choose final wavelength of FSR:')
-        self.final_wavelength=input()
-
+        self.final_wavelength=float(input())
 
     def scan_current_to_heater(self):
         '''
@@ -82,6 +85,9 @@ class HeaterScan(TransmissionSpectrum):
 
         # init figure for all peaks in scan
         fig_peaks_colored, ax_peaks_colored = plt.subplots()
+        plt.title('scatter - peaks width per freq and current')
+        plt.xlabel('freqs[THz]')
+        plt.ylabel('current[A]')
 
         for idx, current in enumerate(self.currents_in_scan):
             # set current to power supply
@@ -98,20 +104,17 @@ class HeaterScan(TransmissionSpectrum):
             #                        self.total_spectrum, 1000, 'Test',mkdir)
 
             # find fundamental peaks from scan
-            peaks,peaks_width = self.analyze_spectrum(self.total_spectrum,idx,current,ax=ax_peaks_colored)
-            self.all_peaks += self.scan_freqs[peaks]
+            peaks,peaks_width = self.analyze_spectrum(self.total_spectrum,idx,current,fig = fig_peaks_colored,ax=ax_peaks_colored)
+            self.all_peaks += self.scan_freqs[peaks].tolist()
+            # peaks_width = (np.array(peaks_width) * (-1000)).tolist()
             self.all_peaks_width += peaks_width
             self.currents += [current]*len(peaks)
 
+
+
         self.peaks_and_widths += list(zip(self.all_peaks,self.all_peaks_width))
+        self.plot_and_save(peaks_and_widths = self.peaks_and_widths)
 
-        print('how many peaks in single scan?')
-        self.num_of_peaks_in_scan = int(input())
-        kmeans = KMeans(n_clusters=self.num_of_peaks_in_scan)
-
-        kmeans.fit(self.peaks_and_widths)
-        plt.scatter(self.all_peaks,self.all_peaks_width, c=kmeans.labels_)
-        plt.show()
         #
         # self.heated_peak = self.find_heated_peak()
         # # pin heated peaks on spectrum
@@ -124,7 +127,7 @@ class HeaterScan(TransmissionSpectrum):
         #     plt.plot(self.heated_peak,self.currents_in_scan,label = 'peak '+str(i))
         #     plt.legend()
 
-    def analyze_spectrum(self,spectrum,i,current,ax):
+    def analyze_spectrum(self,spectrum,i,current,fig,ax):
         '''
 
         :param spectrum:
@@ -138,29 +141,58 @@ class HeaterScan(TransmissionSpectrum):
         interpolated_spectrum = AnalyzeSpectrum.smooth_and_normalize_spectrum(decimation=self.decimation, spectrum=spectrum,
                                                                               wavelengths=self.scan_wavelengths)
         peaks_width, peaks, peaks_properties = AnalyzeSpectrum.find_peaks_in_spectrum( prominence=0.2, height=None, distance=None, rel_height=0.5,spectrum=interpolated_spectrum[0])
-        peaks_width_in_Thz = [self.scan_freqs[( peaks[i] + int(peaks_width[0][i] / 2))] -
-                                   self.scan_freqs[(peaks[i] - int(peaks_width[0][i] / 2))] for i in
+        peaks_width_in_Thz = [self.scan_freqs[(peaks[i] - int(peaks_width[0][i] / 2))] -
+                                   self.scan_freqs[(peaks[i] + int(peaks_width[0][i] / 2))] for i in
                                    range(len(peaks))]
         # plot peaks colored by widths
         AnalyzeSpectrum.plot_peaks_colored_by_width(ax=ax,peaks_freqs=self.scan_freqs[peaks],Y=[current]*len(peaks),colors=peaks_width[0])
 
+
+
         # divide different modes
-        fundamental_mode,high_mode = AnalyzeSpectrum.divide_to_different_modes(peaks=peaks,
-            division_width_between_modes=self.division_width_between_modes,
-                                       modes_width=peaks_width_in_Thz)
-        [peaks_fundamental_mode, peaks_high_mode] = [fundamental_mode[1], high_mode[1]]
+        fundamental_mode,high_mode = AnalyzeSpectrum.divide_to_different_modes(peaks=peaks,division_width_between_modes=self.division_width_between_modes,modes_width=peaks_width_in_Thz)
+
+        [peaks_fundamental_mode,peaks_fundamental_mode_widths, peaks_high_mode] = [fundamental_mode[1],fundamental_mode[0], high_mode[1]]
+
         self.peaks_per_mode = [peaks_fundamental_mode, peaks_high_mode]
-        peaks_fig=AnalyzeSpectrum.plot_peaks(scan_freqs=self.scan_freqs,interpolated_spectrum=interpolated_spectrum[0],
+
+        peaks_fig = AnalyzeSpectrum.plot_peaks(scan_freqs=self.scan_freqs,interpolated_spectrum=interpolated_spectrum[0],
                                    peaks_per_mode=self.peaks_per_mode)
 
 
         AnalyzeSpectrum.save_analyzed_data(dist_root=self.saved_file_root,
                                            filename=r'Heater_Scan'+str(i)
                                 , analysis_spectrum_parameters=None,
-                                spectrum_data=[interpolated_spectrum, self.scan_freqs],figure=peaks_fig, width_fig = fig_peaks_colored)
-        return peaks,peaks_width_in_Thz
+                                spectrum_data=[interpolated_spectrum, self.scan_freqs],figure=peaks_fig, width_fig = fig)
 
+        return peaks_fundamental_mode,peaks_fundamental_mode_widths
 
+    def plot_and_save(self, peaks_and_widths):
+        # fit the fundamental mode peaks to different groups by ring, using Kmeans algo
+        print('how many peaks in single scan?')
+        self.num_of_peaks_in_scan = int(input())
+        kmeans = KMeans(n_clusters=self.num_of_peaks_in_scan)
+
+        kmeans.fit(self.peaks_and_widths)
+
+        # plot the groups scattering
+        plt.figure()
+        scatter = plt.scatter(self.all_peaks, self.all_peaks_width, c=kmeans.labels_)
+        plt.title('Kmeans scattering - peaks groups per ring and mode')
+        plt.xlabel('freqs [THz]')
+        plt.ylabel('widths [Units??!]')
+        plt.legend(*scatter.legend_elements())
+        plt.show()
+
+        # plot the moving peak
+        print('choose the moving peak number:')
+        group_num = input()
+        # plot the moving peaks
+        peaks_heated = [self.all_peaks[ind] for ind in range(len(self.all_peaks)) if kmeans.labels_[ind] == group_num]
+        plt.figure()
+        plt.plot(self.currents_in_scan ** 2, peaks_heated)
+
+        # save the fundamental peaks data
 
 
     def find_heated_peak(self):
