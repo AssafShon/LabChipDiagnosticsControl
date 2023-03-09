@@ -11,9 +11,13 @@ WAIT_TIME = 5
 
 class HeaterScan(TransmissionSpectrum):
     def __init__(self, max_current_scan=10e-3, num_of_points_in_scan=5, typ_noise_in_freq = 20e-3,
-                 decimation=1000,division_width_between_modes = 8.0e-3 , saved_file_root =  r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\HeaterScan'):
+                 decimation=1000, division_width_between_modes = 8.0e-3,
+                 saved_file_root =  r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\HeaterScan'
+                 , wide_scan_bounds=None):
         # running transmission spectrum init (connect pico and laser)
         super().__init__()
+
+
         # connect pwr supply
         self.PowerSupply = PowerSupply()
 
@@ -24,15 +28,39 @@ class HeaterScan(TransmissionSpectrum):
         self.decimation = decimation
         self.division_width_between_modes = division_width_between_modes
         self.saved_file_root = saved_file_root
+        if wide_scan_bounds is None:
+            wide_scan_bounds = [772, 776]
 
+        # init pwr supply params
         self.PowerSupply.SetCurrent(0)
         self.PowerSupply.SetVoltage(20) # so voltage won't restrict the current
         self.PowerSupply.OutputState(1)
 
+        # find fsr bounds
+        self.find_fsr_wvlnth_bounds(wide_scan_bounds)
+
         self.scan_current_to_heater()
 
+        # final pwr supply params
+        self.PowerSupply.SetCurrent(0)
         self.PowerSupply.OutputState(0)
         self.PowerSupply.Disconnect()
+
+
+    def find_fsr_wvlnth_bounds(self,wide_scan_bounds):
+        '''
+        find FSR init and final wavelengths
+        :return:
+        '''
+        self.init_wavelength = wide_scan_bounds[0]
+        self.final_wavelength = wide_scan_bounds[1]
+        self.get_wide_spectrum(parmeters_by_console=False)
+        self.plot_transmission_spectrum(self.total_spectrum, decimation=1)
+        print('choose init wavelength of FSR:')
+        self.init_wavelength=input()
+        print('choose final wavelength of FSR:')
+        self.final_wavelength=input()
+
 
     def scan_current_to_heater(self):
         '''
@@ -44,26 +72,27 @@ class HeaterScan(TransmissionSpectrum):
         self.all_peaks = []
         self.spectrum_per_current = []
 
+        # list of currents in the scan
         self.currents_in_scan = np.arange(0, self.max_current_scan, self.max_current_scan/self.num_of_points_in_scan)
+
+        # init figure for all peaks in scan
+        fig_peaks_colored, ax_peaks_colored = plt.subplots()
+
         for idx, current in enumerate(self.currents_in_scan):
             # set current to power supply
             self.PowerSupply.SetCurrent(current)   # set current by voltage
 
             # get trace from scope and detect resonance center
             print("begin "+str(idx)+" scan")
-            if idx==0:
-                mkdir=True
-                self.get_wide_spectrum(parmeters_by_console=True)
-                fig_peaks_colored, ax_peaks_colored = plt.subplots()
+            time.sleep(WAIT_TIME)
+            self.get_wide_spectrum(parmeters_by_console=False)
 
-            else:
-                mkdir=False
-                time.sleep(WAIT_TIME)
-                self.get_wide_spectrum(parmeters_by_console=False)
-
+            # append spectrum
             self.spectrum_per_current.append(self.total_spectrum)
             # self.save_figure_and_data(self.saved_file_root,
             #                        self.total_spectrum, 1000, 'Test',mkdir)
+
+            # find fundamental peaks from scan
             peaks = self.analyze_spectrum(self.total_spectrum,idx,current,ax=ax_peaks_colored)
             self.all_peaks.append(self.scan_freqs[peaks])
         #

@@ -43,7 +43,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
             # this decimation is only for this plotting and saving of the scans data
             decimation_in_samples_for_scan = 10
-            self.plot_spectrum(self.total_spectrum,decimation=decimation_in_samples_for_scan)
+            self.plot_transmission_spectrum(self.total_spectrum, decimation=decimation_in_samples_for_scan)
 
             np_root =self.save_figure_and_data(saved_file_root,
                                    self.total_spectrum,decimation_in_samples_for_scan,'')

@@ -107,7 +107,7 @@ class TransmissionSpectrum:
         b, a = signal.butter(filter_order, filter_critical_freq, btype=filter_type)
         return signal.filtfilt(b, a, self.total_spectrum)
 
-    def plot_spectrum(self, Y,decimation):
+    def plot_transmission_spectrum(self, Y, decimation):
         plt.figure()
         plt.title('Transmission Spectrum')
         plt.xlabel('Wavelength[nm]')
@@ -139,7 +139,7 @@ if __name__ == "__main__":
         # get spectrum
         o.get_wide_spectrum(parmeters_by_console=True)
         decimation = 10
-        o.plot_spectrum(o.total_spectrum,decimation=decimation)
+        o.plot_transmission_spectrum(o.total_spectrum, decimation=decimation)
         o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum
                                ,decimation, 'Test')
         o.Pico.__del__()
