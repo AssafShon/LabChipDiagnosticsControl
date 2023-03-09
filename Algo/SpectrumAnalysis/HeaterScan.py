@@ -6,6 +6,8 @@ from AnalyzeSpectrum import AnalyzeSpectrum
 from numpy import matlib
 from matplotlib import pyplot as plt
 from Utility_functions import plot_figure
+from sklearn.cluster import KMeans
+
 WAIT_TIME = 5
 
 
@@ -70,7 +72,10 @@ class HeaterScan(TransmissionSpectrum):
         '''
         # define variables
         self.all_peaks = []
+        self.all_peaks_width = []
+        self.peaks_and_widths = []
         self.spectrum_per_current = []
+        self.currents = []
 
         # list of currents in the scan
         self.currents_in_scan = np.arange(0, self.max_current_scan, self.max_current_scan/self.num_of_points_in_scan)
@@ -93,8 +98,20 @@ class HeaterScan(TransmissionSpectrum):
             #                        self.total_spectrum, 1000, 'Test',mkdir)
 
             # find fundamental peaks from scan
-            peaks = self.analyze_spectrum(self.total_spectrum,idx,current,ax=ax_peaks_colored)
-            self.all_peaks.append(self.scan_freqs[peaks])
+            peaks,peaks_width = self.analyze_spectrum(self.total_spectrum,idx,current,ax=ax_peaks_colored)
+            self.all_peaks += self.scan_freqs[peaks]
+            self.all_peaks_width += peaks_width
+            self.currents += [current]*len(peaks)
+
+        self.peaks_and_widths += list(zip(self.all_peaks,self.all_peaks_width))
+
+        print('how many peaks in single scan?')
+        self.num_of_peaks_in_scan = int(input())
+        kmeans = KMeans(n_clusters=self.num_of_peaks_in_scan)
+
+        kmeans.fit(self.peaks_and_widths)
+        plt.scatter(self.all_peaks,self.all_peaks_width, c=kmeans.labels_)
+        plt.show()
         #
         # self.heated_peak = self.find_heated_peak()
         # # pin heated peaks on spectrum
@@ -141,7 +158,7 @@ class HeaterScan(TransmissionSpectrum):
                                            filename=r'Heater_Scan'+str(i)
                                 , analysis_spectrum_parameters=None,
                                 spectrum_data=[interpolated_spectrum, self.scan_freqs],figure=peaks_fig, width_fig = fig_peaks_colored)
-        return peaks_fundamental_mode
+        return peaks,peaks_width_in_Thz
 
 
 

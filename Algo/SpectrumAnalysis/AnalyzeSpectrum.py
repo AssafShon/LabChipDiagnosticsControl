@@ -11,6 +11,7 @@ import math
 import csv
 from Utility_functions import bcolors
 
+
 #parameters
 C_light = 2.99792458e8
 
@@ -438,6 +439,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 #plt.title('Lorenzian fit for width increase '+str(width_increase))
                 #plt.pause(0.1)
                 #plt.show(block=False)
+
                 # print("Is the fit ok? [1-yes, 0-no, try small width]")
                 # stop = int(input())
 
@@ -445,6 +447,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             except Exception:
                 print(bcolors.WARNING + "For width_increase = " + str(width_increase) + ", peak number " + str(
                     i) + " could not be fitted to lorenzian" + bcolors.ENDC)
+
 
             width_increase = round(width_increase - 0.2,2)
         plt.close('all')
