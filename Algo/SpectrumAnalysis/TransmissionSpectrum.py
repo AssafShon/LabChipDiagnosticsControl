@@ -116,7 +116,7 @@ class TransmissionSpectrum:
         plt.plot(self.scan_wavelengths[0:-1:decimation], Y[0:-1:decimation],'r')
         # plt.show()
 
-    def save_figure_and_data(self,dist_root,spectrum_data,decimation,filename = 'Transmission_spectrum', mkdir = True):
+    def save_figure_and_data(self,dist_root,spectrum_data,decimation,filename = 'Transmission_spectrum', mkdir = True, detector_noise=12):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         if mkdir:
             # create directory
@@ -129,7 +129,7 @@ class TransmissionSpectrum:
         #save python data
         np_filename = timestr + filename + '.npz'
         np_root = os.path.join(self.transmission_directory_path,np_filename)
-        np.savez(np_root, spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths[0:-1:decimation])
+        np.savez(np_root, spectrum = spectrum_data[0:-1:decimation],wavelengths = self.scan_wavelengths[0:-1:decimation], detector_noise = detector_noise)
         return np_root
 
 if __name__ == "__main__":
@@ -140,8 +140,10 @@ if __name__ == "__main__":
         o.get_wide_spectrum(parmeters_by_console=True)
         decimation = 10
         o.plot_transmission_spectrum(o.total_spectrum, decimation=decimation)
+        print('For canceling the detector\'s noise, turn off the laser. What\'s the noise value? [mV]')
+        detector_noise = input()
         o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum
-                               ,decimation, 'Test')
+                               ,decimation, 'Test', detector_noise)
         o.Pico.__del__()
         o.Laser.__del__()
     except:

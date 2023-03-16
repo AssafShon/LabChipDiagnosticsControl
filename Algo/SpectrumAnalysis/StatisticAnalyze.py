@@ -58,7 +58,7 @@ class StatisticAnalyze(AnalyzeSpectrum):
         self.waveguides_dictionary = {}
 
         self.wg_names = []
-        for i in range(11,13):
+        for i in range(9,11):
             for j in range(1, 2):
                 self.wg_names.append(r'W'+str(j)+'-'+str(i).zfill(2))
         for name in self.wg_names:
