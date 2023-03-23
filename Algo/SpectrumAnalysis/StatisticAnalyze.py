@@ -41,8 +41,8 @@ class StatisticAnalyze(AnalyzeSpectrum):
         self.chips_dictionary = {}
         self.excel_contant = ""
 
-        #for elem in chip_types_names:
-        for elem in ["01A3"]:    # fast version for debug
+        for elem in chip_types_names:
+        #for elem in ["01A3"]:    # fast version for debug
             single_chip_type_name = os.path.join(self.saved_file_root, elem)
             chip_number_names = os.listdir(single_chip_type_name)
 
@@ -93,7 +93,7 @@ class StatisticAnalyze(AnalyzeSpectrum):
             f.write("File Contant:,")
             f.write("%s\n\n" % self.excel_contant)
 
-            f.write("%s,%s,%s,%s,%s,%s,%s,%s, %s \n" % ("mode[THz]","peak_freq[GHz]","kappa_ex[GHz]","kappa_i[GHz]","h","FWHM[GHz]","wave_guide","chip number", "wayfer"))
+            f.write("%s,%s,%s,%s,%s,%s,%s,%s,%s, %s \n" % ("mode[THz]","peak_freq[GHz]","kappa_ex[GHz]","kappa_i[GHz]","h","FWHM[GHz]","Ring","wave_guide","chip number", "wayfer"))
             for chip_name in self.chips_dictionary.keys():
                 for wg_name in self.chips_dictionary[chip_name]:
                     for i in range(len(self.chips_dictionary[chip_name][wg_name]["mode[THz]"])):

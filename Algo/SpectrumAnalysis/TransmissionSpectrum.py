@@ -64,7 +64,18 @@ class TransmissionSpectrum:
         self.total_spectrum = []
         self.partial_spectrum = []
 
+
         if parmeters_by_console:
+            # for delete the detector's noise
+            print('For canceling the detector\'s noise, turn off the laser. (For default value - 10.7[mV] - press 0)')
+            if int(input())!=0:
+                self.detector_noise = np.mean(self.Scope.get_trace()[CH_B])
+                print('Turn on the laser')
+                input()
+            else:
+                self.detector_noise = 10.7
+
+
             print("Enter initial wavelength for scan in [nm]:")
             self.init_wavelength = float(input())
 
@@ -91,6 +102,8 @@ class TransmissionSpectrum:
 
         # create vector of wavelengths in the scan
         self.get_scan_wavelengths()
+
+
 
     def get_scan_wavelengths(self):
         m_wavenumber_transmitted = (self.final_wavelength - self.init_wavelength + self.single_scan_width) / len(
@@ -140,10 +153,8 @@ if __name__ == "__main__":
         o.get_wide_spectrum(parmeters_by_console=True)
         decimation = 10
         o.plot_transmission_spectrum(o.total_spectrum, decimation=decimation)
-        print('For canceling the detector\'s noise, turn off the laser. What\'s the noise value? [mV]')
-        detector_noise = input()
         o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum
-                               ,decimation, 'Test', detector_noise)
+                               ,decimation, 'Test', o.detector_noise)
         o.Pico.__del__()
         o.Laser.__del__()
     except:
