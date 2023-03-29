@@ -101,7 +101,7 @@ class HeaterScan(TransmissionSpectrum):
             # append spectrum
             self.spectrum_per_current.append(self.total_spectrum)
             # self.save_figure_and_data(self.saved_file_root,
-            #                        self.total_spectrum, 1000, 'Test',mkdir)
+            #                        self.total_spectrum, self.total_cosy_spectrum 1000, 'Test',mkdir)
 
             # find fundamental peaks from scan
             peaks,peaks_width = self.analyze_spectrum(self.total_spectrum,idx,current,fig = fig_peaks_colored,ax=ax_peaks_colored)
