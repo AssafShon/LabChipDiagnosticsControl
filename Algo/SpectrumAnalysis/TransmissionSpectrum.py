@@ -55,7 +55,7 @@ class TransmissionSpectrum:
             self.single_scan_width = self.SigGen.calculate_scan_width()
             print('The scan width in nm is:', self.single_scan_width)
             self.Laser.tlb_set_wavelength(self.init_wavelength)
-
+            self.detector_noise = 0
 
 
 
@@ -70,14 +70,11 @@ class TransmissionSpectrum:
 
         if parmeters_by_console:
             # for delete the detector's noise
-            print('For canceling the detector\'s noise, turn off the laser. (For default value - 10.7[mV] - press 0)')
-            if int(input())!=0:
-                self.detector_noise = np.mean(self.Scope.get_trace()[CH_B])
-                print('Turn on the laser')
-                input()
-            else:
-                self.detector_noise = 10.7
-
+            try:
+                # self.detector_noise = 0
+                self.check_detector_noise()
+            except Exception:
+                raise
 
             print("Enter initial wavelength for scan in [nm]:")
             self.init_wavelength = float(input())
@@ -102,7 +99,7 @@ class TransmissionSpectrum:
             if i > 779.2:
                 self.partial_Cosy_spectrum.append(self.Scope.get_trace()[CH_C])# + self.Scope.calibrate_trace_avg_voltage * 1000)
 
-            # patch the traces771 781
+        # patch the traces 771 781
         self.total_spectrum = np.concatenate(self.partial_spectrum)
         self.total_spectrum = [float(item) for item in self.total_spectrum]
         self.total_spectrum = np.array(self.total_spectrum)
@@ -116,7 +113,31 @@ class TransmissionSpectrum:
         # create vector of wavelengths in the scan
         self.get_scan_wavelengths()
 
+    def check_detector_noise(self):
+        # precaution - run the function only if the laser turned on by the user
+        if self.Laser.tlb_query('OUTPut:STATe?') != '1':
+            raise TypeError('Error. Turn on the laser and try again')
 
+        # turn the laser off and take mean of pico trace
+        self.Laser.tlb_query('OUTPut:STATe 0')
+        time.sleep(WAIT_TIME*3)
+        if self.Laser.tlb_query('OUTPut:STATe?') == '0':
+            print('The laser turned off to find the detector noise')
+        self.detector_noise = np.mean(self.Scope.get_trace()[CH_B])
+
+        # turn the laser on
+        try:
+            self.Laser.tlb_query('OUTPut:STATe 1')
+        except Exception:
+            raise TypeError('Error in finding the detectror\'s noise')
+
+        time.sleep(WAIT_TIME*5)
+        if self.Laser.tlb_query('OUTPut:STATe?') == '1':
+            print('The laser turned on, the noise is '+str(np.round(self.detector_noise,3)))
+        #if self.detector_noise == 0:
+       #     print('Wow, error:(')
+       # else:
+        #    print('The detector\'s noise is '+str(np.round(self.detector_noise,3)))
 
     def get_scan_wavelengths(self):
         m_wavenumber_transmitted = (self.final_wavelength - self.init_wavelength + self.single_scan_width) / len(
@@ -145,7 +166,7 @@ class TransmissionSpectrum:
         plt.plot(self.scan_wavelengths[start_index:-1:decimation], Cosy[0:-1:decimation],'g')
         # plt.show()
 
-    def save_figure_and_data(self,dist_root,spectrum_data,Cosy,decimation,filename = 'Transmission_spectrum', mkdir = True, detector_noise=12):
+    def save_figure_and_data(self,dist_root,spectrum_data,Cosy,decimation,filename = 'Transmission_spectrum', mkdir = True, detector_noise_val=12):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         if mkdir:
             # create directory
@@ -162,8 +183,9 @@ class TransmissionSpectrum:
         # save python data
         np_filename = timestr + filename + '.npz'
         np_root = os.path.join(self.transmission_directory_path,np_filename)
+        detector_noise_val = np.ones(100)*detector_noise_val
         np.savez(np_root, spectrum = spectrum_data[0:-1:decimation], wavelengths = self.scan_wavelengths[0:-1:decimation],
-                 cosy_spectrum = Cosy[0:-1:decimation], cosy_wavelengths = self.scan_wavelengths[len(self.scan_wavelengths[0:-1]) - len(Cosy[0:-1]):-1:decimation], detector_noise = detector_noise)
+                 cosy_spectrum = Cosy[0:-1:decimation], cosy_wavelengths = self.scan_wavelengths[len(self.scan_wavelengths[0:-1]) - len(Cosy[0:-1]):-1:decimation], detector_noise = detector_noise_val)
         return np_root
 
 if __name__ == "__main__":
@@ -175,7 +197,7 @@ if __name__ == "__main__":
         decimation = 10
         o.plot_transmission_spectrum(o.total_spectrum, o.total_Cosy_spectrum, decimation=decimation)
         o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum,
-                               o.total_Cosy_spectrum, decimation, 'Test', o.detector_noise)
+                               o.total_Cosy_spectrum, decimation, 'Test', detector_noise_val = o.detector_noise)
         o.Pico.__del__()
         o.Laser.__del__()
     except:
