@@ -67,6 +67,10 @@ class TransmissionSpectrum:
         self.total_Cosy_spectrum = []
         self.partial_Cosy_spectrum = []
 
+        #self.total_A_chnnel_spectrum = []
+        #self.partial_A_chnnel_spectrum = []
+        self.trace_limits = []
+        a = 0
 
         if parmeters_by_console:
             # for delete the detector's noise
@@ -95,6 +99,13 @@ class TransmissionSpectrum:
             # take trace from the scope
             self.partial_spectrum.append(self.Scope.get_trace()[CH_B])# + self.Scope.calibrate_trace_avg_voltage * 1000)
 
+            # list of indexes scop trace ends to make sure the scan don't miss any peak
+
+            self.trace_limits.append(a + len(self.Scope.get_trace()[CH_B]))
+            a = a + len(self.Scope.get_trace()[CH_B])
+
+            #self.partial_A_chnnel_spectrum.append(self.Scope.get_trace()[CH_A])
+
             # taking Cosy scan between [778, final wavlength] from channel C
             if i > 779.2:
                 self.partial_Cosy_spectrum.append(self.Scope.get_trace()[CH_C])# + self.Scope.calibrate_trace_avg_voltage * 1000)
@@ -109,6 +120,11 @@ class TransmissionSpectrum:
             self.total_Cosy_spectrum = np.concatenate(self.partial_Cosy_spectrum)
             self.total_Cosy_spectrum = [float(item) for item in self.total_Cosy_spectrum]
             self.total_Cosy_spectrum = np.array(self.total_Cosy_spectrum)
+
+        #self.total_A_chnnel_spectrum = np.concatenate(self.partial_A_chnnel_spectrum)
+        #self.total_A_chnnel_spectrum = [float(item) for item in self.total_A_chnnel_spectrum]
+        #self.total_A_chnnel_spectrum = np.array(self.total_A_chnnel_spectrum)
+
 
         # create vector of wavelengths in the scan
         self.get_scan_wavelengths()
@@ -166,7 +182,7 @@ class TransmissionSpectrum:
         plt.plot(self.scan_wavelengths[start_index:-1:decimation], Cosy[0:-1:decimation],'g')
         # plt.show()
 
-    def save_figure_and_data(self,dist_root,spectrum_data,Cosy,decimation,filename = 'Transmission_spectrum', mkdir = True, detector_noise_val=12):
+    def save_figure_and_data(self,dist_root,spectrum_data,Cosy,decimation,filename = 'Transmission_spectrum', mkdir = True, detector_noise_val=12, trace_limits = 0):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         if mkdir:
             # create directory
@@ -183,9 +199,12 @@ class TransmissionSpectrum:
         # save python data
         np_filename = timestr + filename + '.npz'
         np_root = os.path.join(self.transmission_directory_path,np_filename)
+        # detector's noise &
         detector_noise_val = np.ones(100)*detector_noise_val
+        if trace_limits != 0:
+            trace_limits = [int(t/decimation) for t in trace_limits]
         np.savez(np_root, spectrum = spectrum_data[0:-1:decimation], wavelengths = self.scan_wavelengths[0:-1:decimation],
-                 cosy_spectrum = Cosy[0:-1:decimation], cosy_wavelengths = self.scan_wavelengths[len(self.scan_wavelengths[0:-1]) - len(Cosy[0:-1]):-1:decimation], detector_noise = detector_noise_val)
+                 cosy_spectrum = Cosy[0:-1:decimation], cosy_wavelengths = self.scan_wavelengths[len(self.scan_wavelengths[0:-1]) - len(Cosy[0:-1]):-1:decimation], detector_noise = detector_noise_val, trace_limits = trace_limits)
         return np_root
 
 if __name__ == "__main__":
@@ -197,7 +216,7 @@ if __name__ == "__main__":
         decimation = 10
         o.plot_transmission_spectrum(o.total_spectrum, o.total_Cosy_spectrum, decimation=decimation)
         o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum,
-                               o.total_Cosy_spectrum, decimation, 'Test', detector_noise_val = o.detector_noise)
+                               o.total_Cosy_spectrum, decimation, 'Test', detector_noise_val = o.detector_noise, trace_limits = o.trace_limits)
         o.Pico.__del__()
         o.Laser.__del__()
     except:

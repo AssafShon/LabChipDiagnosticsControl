@@ -89,6 +89,8 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             self.cosy_wavelengths = data['cosy_wavelengths']
             #cosy_const = 0
 
+            self.before_wavelength = self.scan_wavelengths
+            self.before_cosy_wavelength = self.cosy_wavelengths
             self.before_scan_freqs = self.get_scan_freqs(self.scan_wavelengths)
             self.before_cosy_scan_freqs = self.get_scan_freqs(self.cosy_wavelengths)
 
@@ -100,20 +102,31 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
 
         # convert from nm to THz
-        self.scan_freqs = self.get_scan_freqs(self.scan_wavelengths)
+        self.scan_freqs = self.get_scan_freqs(self.scan_freqs)
 
         # smooth spectrum and normalize it
         decimation = self.invert_decimatiom_from_freq_to_samples()    # this decimation is for the Analysis
         [self.interpolated_spectrum,self.interpolated_spectrum_unNorm] = self.smooth_and_normalize_spectrum(decimation, spectrum =self.total_spectrum, wavelengths=self.scan_wavelengths)
 
+
+        # load trace limits
+        try:
+            self.trace_limits = data['trace_limits']
+            self.decimation = decimation
+        except Exception:
+            print('No trace limits data')
+
+
+
+
         # plot before and after fixing cosy & noise
-        self.cosy_noise_checks()
+        # self.cosy_noise_checks()
 
         # find peaks and divide to different modes
         self.peaks_width,self.peaks,self.peaks_properties = self.find_peaks_in_spectrum(prominence,height,distance,rel_height,spectrum=self.interpolated_spectrum)
-        if len(self.peaks) > 40:
-            print('Prominence isn\'t good, too many peaks found')
-            return
+        #if len(self.peaks) > 40:
+        #    print('Prominence isn\'t good, too many peaks found')
+        #    return
         self.peaks_width_in_Thz_negative = [self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i]/2))] -
                                    self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]/2))] for i in range(len(self.peaks))]
         self.peaks_width_in_Thz = [abs(value) for value in self.peaks_width_in_Thz_negative]
@@ -140,7 +153,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.effective_kappa_all_resonances = self.calc_effective_kappa_and_h()
 
         # plot lorenzians
-        self.plot_lorenzians()
+        self.plot_lorenzians(x_axis=self.scan_wavelengths)
         plt.show()
 
         #print('For classify the peaks to rings, enter the freq of the first peak of 4 fundamental peaks: [THz]')
@@ -477,20 +490,31 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         return peaks_fig
 
-    def plot_lorenzians(self):
+    def plot_lorenzians(self, x_axis):
         self.lorenzian_fig = plt.figure()
-        plt.plot(self.scan_freqs, self.interpolated_spectrum)
+        plt.plot(x_axis, self.interpolated_spectrum)
+        plt.title('The Cosy wl error [nm] - '+str(self.wl_error)+', freq error [THz] - '+str(self.get_scan_freqs(self.wl_error)))
         for i in range(len(self.peaks_per_mode)):
-            plt.plot(self.scan_freqs[self.peaks_per_mode[i]], self.interpolated_spectrum[self.peaks_per_mode[i]], 'o')
+            plt.plot(x_axis[self.peaks_per_mode[i]], self.interpolated_spectrum[self.peaks_per_mode[i]], 'o')
         for i in range(len(self.fit_res)):
             if len(self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i])):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i]))]) == 0:
                 fix_normalitation = 1
             else:
                 fix_normalitation = np.max(self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i] )):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i]))])
-            plt.plot(self.scan_freqs[
+            plt.plot(x_axis[
                      (self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i] )):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i] ))],
-                     fix_normalitation*self.Lorenzian(self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i] )):(
+                     fix_normalitation*self.Lorenzian(x_axis[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i] )):(
                              self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i]))], *self.fit_res[i]), 'r-')
+
+        # plot trace limits
+        #self.trace_limits = [int(i/self.decimation) for i in self.trace_limits]
+        if self.trace_limits == []:
+            return
+        self.trace_limits = [int(i /10) for i in self.trace_limits]
+        for i in self.trace_limits:
+            if i > 50 and i < (len(self.interpolated_spectrum) - 50):
+                print(i)
+                plt.plot(x_axis[i-20: i+20], self.interpolated_spectrum[i-20: i+20], 'y')
 
     @classmethod
     def plot_peaks_colored_by_width(self,ax,peaks_freqs,Y,colors):
@@ -711,9 +735,9 @@ class AnalyzeSpectrum(TransmissionSpectrum):
     def invert_decimatiom_from_freq_to_samples(self):
         self.avg_freqs_diff_between_samples = abs(np.mean(np.diff(self.scan_freqs)))  #in THz
         self.avg_freqs_diff_between_samples = self.avg_freqs_diff_between_samples*1e3 #in GHz
-        #print("what is the resolution, in GHz (The current resolution is %.2f GHz)?" % avg_freqs_diff_between_samples)
-        #resolution_in_GHz = float(input())
-        resolution_in_GHz = float(0.6)
+        print("what is the resolution, in GHz (The current resolution is %.2f GHz)?" % self.avg_freqs_diff_between_samples)
+        resolution_in_GHz = float(input())
+        #resolution_in_GHz = float(0.6)
         resolution_in_samples = int(np.ceil(resolution_in_GHz/self.avg_freqs_diff_between_samples))
         print("The resolution in samples is: " + str(resolution_in_samples))
         return resolution_in_samples
@@ -723,7 +747,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         cosy_peaks_width, cosy_peaks , self.cosy_peaks_prop = self.find_peaks_in_spectrum(prominence, height,distance,rel_height, spectrum=self.cosy_smoothed_spec)
         cosy_peak_wavelength = self.cosy_wavelengths[cosy_peaks[0]]
         self.wl_error = 780.24 - cosy_peak_wavelength  # rubidium peak real frequency = 384.231[THz]
-        print('the cosy error is '+str(np.round(self.wl_error,3)))
+        print('the cosy error [nm] is '+str(np.round(self.wl_error,3)))
 
         #plt.figure()
         #plt.plot(self.scan_wavelengths, self.total_spectrum)
@@ -731,7 +755,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         #plt.show()
 
         self.scan_wavelengths = self.scan_wavelengths + self.wl_error
-
+        self.cosy_wavelengths = self.cosy_wavelengths + self.wl_error
         #plt.figure()
         #plt.plot(self.scan_wavelengths, self.total_spectrum)
         #plt.plot(self.cosy_wavelengths+self.wl_error, self.cosy_spectrum)
@@ -740,7 +764,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
     def detector_noise_compen(self):
         self.total_spectrum = self.total_spectrum - self.detector_noise
         if np.min(self.total_spectrum) < 0:
-            self.total_spectrum = self.total_spectrum + self.detector_noise
+            self.total_spectrum = self.total_spectrum - self.detector_noise
             print('Error in compensation of the photo diode noise')
 
         # plot the corrected total spectrum after normalization
@@ -749,27 +773,45 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         #plt.show()
 
     def cosy_noise_checks(self):
+
+        # check for detector noise & cosy results in wavelength
+        plt.figure()
+        plt.title('Before & after correction [wavelength]')
+        plt.legend(["before", "after"], loc="lower right")
+        plt.plot(self.before_wavelength, self.smooth_and_normalize_spectrum(1, self.total_spectrum+self.detector_noise, self.scan_wavelengths)[0], 'r')
+        plt.plot(self.before_cosy_wavelength, -self.cosy_smoothed_spec+1, 'r')
+        plt.plot(self.scan_wavelengths, self.interpolated_spectrum, 'b')
+        plt.plot(self.cosy_wavelengths, -self.cosy_smoothed_spec+1, 'b')
+        plt.show()
+
+        plt.figure()
+        plt.title('Before & after correction [wavelength]')
+        plt.legend(["before", "after"], loc="lower right")
+        plt.plot(self.before_wavelength, (self.total_spectrum+self.detector_noise)/np.max(self.total_spectrum+self.detector_noise), 'r')
+        #plt.plot(self.before_cosy_wavelength, -self.cosy_smoothed_spec+1, 'r')
+        plt.plot(self.scan_wavelengths, self.total_spectrum/np.max(self.total_spectrum), 'b')
+        #plt.plot(self.cosy_wavelengths, -self.cosy_smoothed_spec+1, 'b')
+        plt.show()
+
+
+        plt.figure()
+        plt.title('Before & after correction [wavelength]')
+        plt.legend(["before", "after"], loc="lower right")
+        plt.plot(self.before_wavelength, self.total_spectrum+self.detector_noise, 'r')
+        #plt.plot(self.before_cosy_wavelength, -self.cosy_spectrum, 'r')
+        plt.plot(self.scan_wavelengths, self.total_spectrum, 'b')
+        plt.plot(self.cosy_wavelengths, -self.cosy_spectrum, 'b')
+        plt.show()
+
         # check for detector noise & cosy results in frequency
-        self.cosy_scan_freqs = self.get_scan_freqs(self.cosy_wavelengths+self.wl_error)
-        self.cosy_freqs = self.get_scan_freqs(self.cosy_wavelengths+self.wl_error)
+        cosy_scan_freqs = self.get_scan_freqs(self.cosy_wavelengths)
         plt.figure()
         plt.title('Before & after correction [freq]')
         plt.legend(["before", "after"], loc="lower right")
         plt.plot(self.before_scan_freqs, self.smooth_and_normalize_spectrum(10, self.total_spectrum-self.detector_noise, self.scan_wavelengths)[0], 'r')
         plt.plot(self.before_cosy_scan_freqs, -self.cosy_smoothed_spec+1, 'r')
         plt.plot(self.scan_freqs, self.interpolated_spectrum, 'b')
-        plt.plot(self.cosy_scan_freqs, -self.cosy_smoothed_spec+1, 'b')
-        plt.show()
-
-        # check for detector noise & cosy results in wavelength
-        self.cosy_freqs = self.get_scan_freqs(self.cosy_wavelengths+self.wl_error)
-        plt.figure()
-        plt.title('Before & after correction [wavelength]')
-        plt.legend(["before", "after"], loc="lower right")
-        plt.plot(self.scan_wavelengths, self.smooth_and_normalize_spectrum(10, self.total_spectrum-self.detector_noise, self.scan_wavelengths)[0], 'r')
-        plt.plot(self.cosy_wavelengths, -self.cosy_smoothed_spec+1, 'r')
-        plt.plot(self.scan_wavelengths, self.interpolated_spectrum,'b')
-        plt.plot(self.cosy_wavelengths, -self.cosy_smoothed_spec+1, 'b')
+        plt.plot(cosy_scan_freqs, -self.cosy_smoothed_spec+1, 'b')
         plt.show()
 
 if __name__ == "__main__":
