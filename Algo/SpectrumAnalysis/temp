@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 from Utility_functions import plot_figure
 WAIT_TIME = 5
 
+
 '''
 class HeaterScan(TransmissionSpectrum):
     def __init__(self, max_current_scan=10e-3, num_of_points_in_scan=3, typ_noise_in_freq = 20e-3,

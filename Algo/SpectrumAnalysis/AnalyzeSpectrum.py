@@ -24,7 +24,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                     #saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
 
     # default initializing
-    def __init__(self, run_experiment, saved_file_root=None, prominence=0.15, height=None, distance=30, rel_height=0.5,
+    def __init__(self, run_experiment, saved_file_root=None, prominence=0.2, height=None, distance=250, rel_height=0.5,
                  saved_filename='analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384,
                  diff_between_groups=0.03):
         '''
@@ -102,25 +102,14 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
 
         # convert from nm to THz
-        self.scan_freqs = self.get_scan_freqs(self.scan_freqs)
+        self.scan_freqs = self.get_scan_freqs(self.scan_wavelengths)
 
         # smooth spectrum and normalize it
         decimation = self.invert_decimatiom_from_freq_to_samples()    # this decimation is for the Analysis
         [self.interpolated_spectrum,self.interpolated_spectrum_unNorm] = self.smooth_and_normalize_spectrum(decimation, spectrum =self.total_spectrum, wavelengths=self.scan_wavelengths)
 
-
-        # load trace limits
-        try:
-            self.trace_limits = data['trace_limits']
-            self.decimation = decimation
-        except Exception:
-            print('No trace limits data')
-
-
-
-
         # plot before and after fixing cosy & noise
-        # self.cosy_noise_checks()
+        # self.cosy_noise_check()
 
         # find peaks and divide to different modes
         self.peaks_width,self.peaks,self.peaks_properties = self.find_peaks_in_spectrum(prominence,height,distance,rel_height,spectrum=self.interpolated_spectrum)
@@ -506,16 +495,6 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                      fix_normalitation*self.Lorenzian(x_axis[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i] )):(
                              self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i]))], *self.fit_res[i]), 'r-')
 
-        # plot trace limits
-        #self.trace_limits = [int(i/self.decimation) for i in self.trace_limits]
-        if self.trace_limits == []:
-            return
-        self.trace_limits = [int(i /10) for i in self.trace_limits]
-        for i in self.trace_limits:
-            if i > 50 and i < (len(self.interpolated_spectrum) - 50):
-                print(i)
-                plt.plot(x_axis[i-20: i+20], self.interpolated_spectrum[i-20: i+20], 'y')
-
     @classmethod
     def plot_peaks_colored_by_width(self,ax,peaks_freqs,Y,colors):
         '''
@@ -577,6 +556,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         fit_parameters = []
         fit_quality = []
         self.width_increase = []
+        print('number of peaks in scan: '+str(len(self.peaks)))
         for i in range(len(self.peaks)):
             # initial guess
             kappa_guess = abs(self.scan_freqs[self.peaks_width[3][i].astype(int)]-self.scan_freqs[self.peaks_width[2][i].astype(int)]) # a guess for the aprrox width of the lorenzian [THz]
@@ -585,7 +565,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
             initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,amp_guess,0])
 
-            #self.width_increase = 1.7*np.ones(len(self.peaks))
+            # self.width_increase = 1.7*np.ones(len(self.peaks))
             self.width_increase.append(self.curve_fit_for_diff_base_widths(kappa_guess, x_dc_guess, y_dc_guess, amp_guess, initial_guess, i))
 
             # make sure the start ind.2ex of x_data and y_data isn't lower than 0
@@ -642,7 +622,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         print('Peak number '+str(i)+', in frequency '+str(self.scan_freqs[self.peaks[i]])[:7])
         if i == 1 or i == 2 or i == 12:
             width_increase = 0.2
-        p = 0
+        plot = 1
         while width_increase <= 4 and stop == 0:
 
             # make sure the start ind.2ex of x_data and y_data isn't lower than 0
@@ -666,7 +646,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 error_vec = self.Lorenzian(x_data_peak, popt[0],popt[1],popt[2],popt[3],popt[4],popt[5])-(y_data_peak / max(y_data))
                 cov_values[width_increase] = sum(error_vec ** 2)
 
-                if p == 1:
+                if plot == 1:
                     # plot the fit and the real data for a single peak and width_increase val
                     plt.figure()
                     plt.plot(self.Lorenzian(x_data, popt[0],popt[1],popt[2],popt[3],popt[4],popt[5]),'g')
@@ -765,14 +745,14 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.total_spectrum = self.total_spectrum - self.detector_noise
         if np.min(self.total_spectrum) < 0:
             self.total_spectrum = self.total_spectrum - self.detector_noise
-            print('Error in compensation of the photo diode noise')
+            print('Error compensation on the photo diode noise')
 
         # plot the corrected total spectrum after normalization
         #plt.figure()
         #plt.plot(self.scan_wavelengths,self.smooth_and_normalize_spectrum(10, self.total_spectrum, self.scan_wavelengths)[0])
         #plt.show()
 
-    def cosy_noise_checks(self):
+    def cosy_noise_check(self):
 
         # check for detector noise & cosy results in wavelength
         plt.figure()

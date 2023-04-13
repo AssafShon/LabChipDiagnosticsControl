@@ -192,8 +192,8 @@ class PicoScopeControl():
         self.set_trigger()
 
         # Set number of pre and post trigger samples to be collected. Calibrated for 10 Hz scan rate of the sigGen.
-        preTriggerSamples = 40500
-        postTriggerSamples = 40500
+        preTriggerSamples = 40500 # 40500
+        postTriggerSamples = 40500 # 40500
         maxSamples = preTriggerSamples + postTriggerSamples
 
         # Get timebase information
@@ -355,7 +355,7 @@ class PicoScopeControl():
     def set_channel(self, channel="CH_A",channel_range = 7, analog_offset = 0.0):
         '''
 
-        :param channel: channel a ("CH_A") or b ("CH_B")
+        :param channel: channel a ("CH_A") or b ("CH_B") or c ("CH_C")
         :param channel_range: voltage range - table of range per number in API (2 - 50mv, 8 - 5V). Affects the digitization resolution.
         :param analogue_offset: an offset, in volts, to be added to the input signal before it reaches the input amplifier and digitizer.
                                 up to 250mv - See the device data sheet for the allowable range.
@@ -405,11 +405,11 @@ class PicoScopeControl():
 
 
 class PicoSigGenControl():
-    def __init__(self,pico, pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRAINGLE'):
+    def __init__(self,pico, pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10, wave_type = 'TRAINGLE'):  # frequency = 10
         '''
 
         :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V].
-                                 With the current amplifier shoud be 0.8V to gerate 6V pk to pk which is the laser dynamic range.
+                                 With the current amplifier should be 0.8V to generate 6V pk to pk which is the laser dynamic range.
         :param offset_voltage: offset of the voltage range center from 0V
         :param frequency: repetition frequency of the signal generator [Hz]. Change can harm TransmissionSpectrum run - Any change in the frequency affect the number of repetitions of the traces from each scan.
         '''

@@ -45,7 +45,7 @@ class TransmissionSpectrum:
         if Python_Control:
             #connect to instruments
             self.Pico = Pico()
-            self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE')
+            self.SigGen = SigGen(pico=self.Pico,pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10,wave_type = 'TRIANGLE') # frequency = 10
             self.Scope = Scope(pico=self.Pico)
             self.Laser = Laser()
 
@@ -70,13 +70,14 @@ class TransmissionSpectrum:
         #self.total_A_chnnel_spectrum = []
         #self.partial_A_chnnel_spectrum = []
         self.trace_limits = []
-        a = 0
+        init_limits = 0
+        self.SigGen_spectrum = []
 
         if parmeters_by_console:
             # for delete the detector's noise
             try:
-                # self.detector_noise = 0
-                self.check_detector_noise()
+                self.detector_noise = 0
+                # self.check_detector_noise()
             except Exception:
                 raise
 
@@ -99,10 +100,10 @@ class TransmissionSpectrum:
             # take trace from the scope
             self.partial_spectrum.append(self.Scope.get_trace()[CH_B])# + self.Scope.calibrate_trace_avg_voltage * 1000)
 
-            # list of indexes scop trace ends to make sure the scan don't miss any peak
-
-            self.trace_limits.append(a + len(self.Scope.get_trace()[CH_B]))
-            a = a + len(self.Scope.get_trace()[CH_B])
+            # list of indexes where the scop trace ends
+            self.trace_limits.append(init_limits + len(self.Scope.get_trace()[CH_B]))
+            init_limits = init_limits + len(self.Scope.get_trace()[CH_B])
+            self.SigGen_spectrum.append(self.Scope.get_trace()[CH_A])
 
             #self.partial_A_chnnel_spectrum.append(self.Scope.get_trace()[CH_A])
 
@@ -121,9 +122,8 @@ class TransmissionSpectrum:
             self.total_Cosy_spectrum = [float(item) for item in self.total_Cosy_spectrum]
             self.total_Cosy_spectrum = np.array(self.total_Cosy_spectrum)
 
-        #self.total_A_chnnel_spectrum = np.concatenate(self.partial_A_chnnel_spectrum)
-        #self.total_A_chnnel_spectrum = [float(item) for item in self.total_A_chnnel_spectrum]
-        #self.total_A_chnnel_spectrum = np.array(self.total_A_chnnel_spectrum)
+        self.SigGen_spectrum = np.concatenate(self.SigGen_spectrum)
+        self.SigGen_spectrum = np.array([float(item) for item in self.SigGen_spectrum])
 
 
         # create vector of wavelengths in the scan
@@ -178,9 +178,33 @@ class TransmissionSpectrum:
         #plt.legend('WG scan', 'Cosy scan')
         plt.grid(True)
         plt.plot(self.scan_wavelengths[0:-1:decimation], Waveguide[0:-1:decimation],'r')
-        start_index = len(self.scan_wavelengths[0:-1]) - len(Cosy[0:-1])
-        plt.plot(self.scan_wavelengths[start_index:-1:decimation], Cosy[0:-1:decimation],'g')
+        # plot cosy scan
+        #start_index = len(self.scan_wavelengths[0:-1]) - len(Cosy[0:-1])
+        #plt.plot(self.scan_wavelengths[start_index:-1:decimation], Cosy[0:-1:decimation],'g')
+        #plt.show()
+
+    def X_axis_resolution_check(self, Waveguide, decimation):
+        '''
+        plot the scan with the limits between scope traces.
+        this function isn't necessary in the scan process, use only for checking that the scan precise in X axis
+        For changing the resolution in axis X-
+        a. change preTriggerSamples & postTriggerSamples in PicoControl_4channels
+        b. change the Frequency of SigGen() here in line 48
+        '''
+        plt.figure()
+        plt.title('Transmission Spectrum X axis check')
+        plt.xlabel('Wavelength[nm]')
+        plt.ylabel('Voltage[mV]')
+        plt.grid(True)
+        plt.plot(self.scan_wavelengths[0:-1:decimation], Waveguide[0:-1:decimation],'r')
+        plt.plot(self.scan_wavelengths[0:-1:decimation], self.SigGen_spectrum[0:-1:decimation]/1000, 'r')
         # plt.show()
+        self.trace_limits = [int(i) for i in self.trace_limits]
+        for i in self.trace_limits:
+            if i > 50 and i < (len(Waveguide)-50):
+                print(i)
+                plt.plot(self.scan_wavelengths[i-20: i+20], Waveguide[i-20: i+20], 'y')
+        plt.show()
 
     def save_figure_and_data(self,dist_root,spectrum_data,Cosy,decimation,filename = 'Transmission_spectrum', mkdir = True, detector_noise_val=12, trace_limits = 0):
         timestr = time.strftime("%Y%m%d-%H%M%S")
@@ -214,8 +238,9 @@ if __name__ == "__main__":
         # get spectrum
         o.get_wide_spectrum(parmeters_by_console=True)
         decimation = 10
+        o.X_axis_resolution_check(o.total_spectrum, decimation=decimation)
         o.plot_transmission_spectrum(o.total_spectrum, o.total_Cosy_spectrum, decimation=decimation)
-        o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission',o.total_spectrum,
+        o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\unnamed scans',o.total_spectrum,
                                o.total_Cosy_spectrum, decimation, 'Test', detector_noise_val = o.detector_noise, trace_limits = o.trace_limits)
         o.Pico.__del__()
         o.Laser.__del__()
