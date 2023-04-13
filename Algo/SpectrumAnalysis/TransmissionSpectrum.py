@@ -42,6 +42,7 @@ class TransmissionSpectrum:
         from BasicInstrumentsControl.PicoControl.PicoControl_4channels import PicoSigGenControl as SigGen
         from BasicInstrumentsControl.Laser.LaserControl import LaserControl as Laser
 
+
         if Python_Control:
             #connect to instruments
             self.Pico = Pico()
