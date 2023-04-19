@@ -48,7 +48,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             # notice - the decimation for scanning is inside TransmissionSpectrum.py
             self.get_wide_spectrum(parmeters_by_console=True)
 
-            # this decimation is only for this plotting and saving of the scans data
+            # this decimation is only for this plotting and saving of the scan
             decimation_in_samples_for_scan = 10
             self.plot_transmission_spectrum(self.total_spectrum, self.total_Cosy_spectrum, decimation=decimation_in_samples_for_scan)
             np_root =self.save_figure_and_data(saved_file_root,
@@ -622,7 +622,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         print('Peak number '+str(i)+', in frequency '+str(self.scan_freqs[self.peaks[i]])[:7])
         if i == 1 or i == 2 or i == 12:
             width_increase = 0.2
-        plot = 1
+        plot = 0
         while width_increase <= 4 and stop == 0:
 
             # make sure the start ind.2ex of x_data and y_data isn't lower than 0

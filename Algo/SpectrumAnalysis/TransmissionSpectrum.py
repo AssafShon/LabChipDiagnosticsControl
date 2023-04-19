@@ -77,8 +77,8 @@ class TransmissionSpectrum:
         if parmeters_by_console:
             # for delete the detector's noise
             try:
-                self.detector_noise = 0
-                # self.check_detector_noise()
+                # self.detector_noise = 0
+                self.check_detector_noise()
             except Exception:
                 raise
 
@@ -89,7 +89,7 @@ class TransmissionSpectrum:
             self.final_wavelength = float(input())
 
         self.Laser.tlb_set_wavelength(self.init_wavelength)
-        time.sleep(5*WAIT_TIME)
+        time.sleep(7*WAIT_TIME)
 
         # jump between wavelengths and take traces
         for i in np.arange(self.init_wavelength, self.final_wavelength, self.single_scan_width):
@@ -186,11 +186,13 @@ class TransmissionSpectrum:
 
     def X_axis_resolution_check(self, Waveguide, decimation):
         '''
-        plot the scan with the limits between scope traces.
+        this function plot the scan with the limits between scope traces.
         this function isn't necessary in the scan process, use only for checking that the scan precise in X axis
         For changing the resolution in axis X-
         a. change preTriggerSamples & postTriggerSamples in PicoControl_4channels
         b. change the Frequency of SigGen() here in line 48
+
+        Before using this function - make sure SigGen_spectrum collect data from Channel C (input signal to laser)
         '''
         plt.figure()
         plt.title('Transmission Spectrum X axis check')
@@ -206,6 +208,8 @@ class TransmissionSpectrum:
                 print(i)
                 plt.plot(self.scan_wavelengths[i-20: i+20], Waveguide[i-20: i+20], 'y')
         plt.show()
+        time.sleep(WAIT_TIME)
+
 
     def save_figure_and_data(self,dist_root,spectrum_data,Cosy,decimation,filename = 'Transmission_spectrum', mkdir = True, detector_noise_val=12, trace_limits = 0):
         timestr = time.strftime("%Y%m%d-%H%M%S")
