@@ -24,7 +24,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                     #saved_filename = 'analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384, diff_between_groups = 0.03):
 
     # default initializing
-    def __init__(self, run_experiment, saved_file_root=None, prominence=0.2, height=None, distance=250, rel_height=0.5,
+    def __init__(self, run_experiment, saved_file_root=None, prominence=0.25, height=None, distance=30, rel_height=0.5,
                  saved_filename='analysis_results', fsr=1.3, num_of_rings=4, init_frequency=384,
                  diff_between_groups=0.03):
         '''
@@ -43,16 +43,19 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 saved_file_root = input()
             super().__init__()
 
-            #self.get_scatter_graph()
+            # self.get_scatter_graph()
 
             # notice - the decimation for scanning is inside TransmissionSpectrum.py
             self.get_wide_spectrum(parmeters_by_console=True)
 
             # this decimation is only for this plotting and saving of the scan
             decimation_in_samples_for_scan = 10
-            self.plot_transmission_spectrum(self.total_spectrum, self.total_Cosy_spectrum, decimation=decimation_in_samples_for_scan)
-            np_root =self.save_figure_and_data(saved_file_root,
-                                   self.total_spectrum,self.total_Cosy_spectrum,decimation_in_samples_for_scan,'', detector_noise_val= self.detector_noise)
+            self.plot_transmission_spectrum(self.total_spectrum, self.total_Cosy_spectrum,
+                                            decimation=decimation_in_samples_for_scan)
+            np_root = self.save_figure_and_data(saved_file_root,
+                                                self.total_spectrum, self.total_Cosy_spectrum,
+                                                decimation_in_samples_for_scan, '',
+                                                detector_noise_val=self.detector_noise)
             self.Pico.__del__()
             self.Laser.__del__()
         else:
@@ -67,7 +70,26 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             # load_filename = r'20230110-102329Test.npz'
 
             np_root = os.path.join(saved_file_root, load_filename)
-            #np_root = os.path.join(self.transmission_directory_path, load_filename)
+            # np_root = os.path.join(self.transmission_directory_path, load_filename)
+
+        # ----- YONATAN -----
+        # a list that allows to follow the fits failure/success states (0/1 respectively).
+        self.fit_conv_state = []
+
+        # Ask user if h should be zero or a free parameter
+        print("Try h=0? (Otherwise, it will be fit's free parameter.)")
+        user_answerH = input("(y/n)?")
+        if user_answerH in [1, "1", "y", "Y", "yes", "Yes"]:
+            self.h_is_zero = True
+            self.fit_function = self.Lorenzian_hZero
+        elif user_answerH in [0 , "0", "n", "N", "no", "No"]:
+            self.h_is_zero = False
+            self.fit_function = self.Lorenzian
+        else:
+            print("Answer is not valid. Assuming default - h is a free parameter.")
+            self.h_is_zero = False
+            self.fit_function = self.Lorenzian
+        # -----------------
 
         # load saved data
         data = np.load(np_root)
@@ -87,7 +109,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         try:
             self.cosy_spectrum = data['cosy_spectrum']
             self.cosy_wavelengths = data['cosy_wavelengths']
-            #cosy_const = 0
+            # cosy_const = 0
 
             self.before_wavelength = self.scan_wavelengths
             self.before_cosy_wavelength = self.cosy_wavelengths
@@ -98,8 +120,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         except Exception:
             print('No data from the Cosy for this scan')
-            #cosy_const = 1
-
+            # cosy_const = 1
 
         # convert from nm to THz
         self.scan_freqs = self.get_scan_freqs(self.scan_wavelengths)
@@ -112,42 +133,47 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # self.cosy_noise_check()
 
         # find peaks and divide to different modes
-        self.peaks_width,self.peaks,self.peaks_properties = self.find_peaks_in_spectrum(prominence,height,distance,rel_height,spectrum=self.interpolated_spectrum)
-        #if len(self.peaks) > 40:
+        self.peaks_width, self.peaks, self.peaks_properties = self.find_peaks_in_spectrum(prominence, height, distance,
+                                                                                          rel_height,
+                                                                                          spectrum=self.interpolated_spectrum)
+        # if len(self.peaks) > 40:
         #    print('Prominence isn\'t good, too many peaks found')
         #    return
-        self.peaks_width_in_Thz_negative = [self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i]/2))] -
-                                   self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]/2))] for i in range(len(self.peaks))]
+        self.peaks_width_in_Thz_negative = [self.scan_freqs[(self.peaks[i] + int(self.peaks_width[0][i] / 2))] -
+                                            self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i] / 2))] for i in
+                                            range(len(self.peaks))]
         self.peaks_width_in_Thz = [abs(value) for value in self.peaks_width_in_Thz_negative]
 
         # division_width_between_modes = self.division_width_choose()
         # self.division_width_between_modes = self.division_width_between_modes_in_samples*self.avg_freqs_diff_between_samples #[GHz]
-        self.division_width_between_modes = 6/1000
+        self.division_width_between_modes = 6 / 1000
 
         # divide different modes
-        self.fundamental_mode,self.high_mode =self.divide_to_different_modes(peaks=self.peaks,division_width_between_modes = self.division_width_between_modes,modes_width =self.peaks_width_in_Thz )
-        [self.peaks_fundamental_mode, self.peaks_high_mode] = [self.fundamental_mode[1],self.high_mode[1]]
+        self.fundamental_mode, self.high_mode = self.divide_to_different_modes(peaks=self.peaks,
+                                                                               division_width_between_modes=self.division_width_between_modes,
+                                                                               modes_width=self.peaks_width_in_Thz)
+        [self.peaks_fundamental_mode, self.peaks_high_mode] = [self.fundamental_mode[1], self.high_mode[1]]
         self.peaks_fund_mode_ind = self.fundamental_mode[0]
         self.peaks_per_mode = [self.peaks_fundamental_mode, self.peaks_high_mode]
 
         # plot figure with peaks
-        self.plot_peaks(scan_freqs=self.scan_freqs,interpolated_spectrum=self.interpolated_spectrum,
+        self.plot_peaks(scan_freqs=self.scan_freqs, interpolated_spectrum=self.interpolated_spectrum,
                         peaks_per_mode=self.peaks_per_mode, peaks_properties=self.peaks_properties)
 
         # fit lorenzians
         # self.width_increase = 1 # multipy this factor to the width of peak for the width of fit
-        [self.fit_res,self.fit_cov_params] = self.fit_lorenzians()
-
+        [self.fit_res, self.fit_cov_params] = self.fit_lorenzians()
 
         self.effective_kappa_all_resonances = self.calc_effective_kappa_and_h()
 
         # plot lorenzians
-        self.plot_lorenzians(x_axis=self.scan_wavelengths)
+        self.plot_lorenzians()
+        self.plot_norm_measurments()
         plt.show()
 
-        #print('For classify the peaks to rings, enter the freq of the first peak of 4 fundamental peaks: [THz]')
-        #print('If this wg isn\'t percise enough, press 0')
-        #self.reference_peak = float(input())
+        # print('For classify the peaks to rings, enter the freq of the first peak of 4 fundamental peaks: [THz]')
+        # print('If this wg isn\'t percise enough, press 0')
+        # self.reference_peak = float(input())
         self.reference_peak = 0
 
         # classify peaks to different rings
@@ -160,41 +186,42 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         if run_experiment == 'True' or run_experiment == '1' or run_experiment == 'ture':
             self.save_analyzed_data(dist_root=self.transmission_directory_path, filename=saved_filename
                                     , analysis_spectrum_parameters=self.analysis_spectrum_parameters,
-                                    spectrum_data=[self.interpolated_spectrum,self.scan_freqs,self.fit_res,self.peaks,
-                                    self.peaks_width],figure=self.lorenzian_fig)
+                                    spectrum_data=[self.interpolated_spectrum, self.scan_freqs, self.fit_res,
+                                                   self.peaks,
+                                                   self.peaks_width], figure=self.lorenzian_fig)
         else:
             self.save_analyzed_data(dist_root=saved_file_root, filename=saved_filename
                                     , analysis_spectrum_parameters=self.analysis_spectrum_parameters,
                                     spectrum_data=[self.interpolated_spectrum, self.scan_freqs, self.fit_res,
-                                                   self.peaks, self.peaks_width],figure=self.lorenzian_fig)
-
+                                                   self.peaks, self.peaks_width], figure=self.lorenzian_fig)
 
     @classmethod
-    def save_analyzed_data(self,dist_root,filename,analysis_spectrum_parameters, spectrum_data,figure, width_fig=None):
+    def save_analyzed_data(self, dist_root, filename, analysis_spectrum_parameters, spectrum_data, figure,
+                           width_fig=None):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         # create directory
-        analysis_path = dist_root+r'\analysis'
+        analysis_path = dist_root + r'\analysis'
         if not os.path.isdir(analysis_path):
             os.mkdir(analysis_path)
         # create directory
-        analysis_path_with_time = os.path.join(analysis_path,timestr)
+        analysis_path_with_time = os.path.join(analysis_path, timestr)
         os.mkdir(analysis_path_with_time)
         # save figure
-        figure.savefig(os.path.join(analysis_path_with_time,timestr+filename+'.png'))
-        if width_fig!=None:
+        figure.savefig(os.path.join(analysis_path_with_time, timestr + filename + '.png'))
+        if width_fig != None:
             width_fig.savefig(os.path.join(analysis_path_with_time, timestr + filename + 'colored_widths.png'))
         # save data as csv
         if not analysis_spectrum_parameters is None:
-            prameters_csv = os.path.join(analysis_path_with_time,'parameters_'+timestr+filename+'.csv')
+            prameters_csv = os.path.join(analysis_path_with_time, 'parameters_' + timestr + filename + '.csv')
             with open(prameters_csv, 'w') as f:
                 for key in analysis_spectrum_parameters.keys():
-                    f.write("%s,%s\n"%(key,analysis_spectrum_parameters[key]))
+                    f.write("%s,%s\n" % (key, analysis_spectrum_parameters[key]))
             # save python data
-            np.savez(os.path.join(analysis_path_with_time,'parameters_'+timestr+filename+'.npz'),
+            np.savez(os.path.join(analysis_path_with_time, 'parameters_' + timestr + filename + '.npz'),
                      parameters=analysis_spectrum_parameters)
 
         # save figure data in python
-        np.savez(os.path.join(analysis_path_with_time, 'spectrum_data_'+timestr + filename + '.npz'),
+        np.savez(os.path.join(analysis_path_with_time, 'spectrum_data_' + timestr + filename + '.npz'),
                  spectrum=spectrum_data)
 
     def classify_peaks(self, num_of_rings):
@@ -206,15 +233,16 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         low_border = round(self.reference_peak, 2) - 0.03
         high_border = round(self.reference_peak, 2) + 0.03
-        FSR = 1.35 # [THz]
+        FSR = 1.35  # [THz]
         self.ring_index = []
         self.classified_fund_peaks = {}
         self.classified_peaks = []
         # find the reference peak for every ring
         for i in range(len(self.peaks_fundamental_mode)):
-            if self.scan_freqs[self.peaks_fundamental_mode[i]] > low_border and self.scan_freqs[self.peaks_fundamental_mode[i]] < high_border:
+            if self.scan_freqs[self.peaks_fundamental_mode[i]] > low_border and self.scan_freqs[
+                self.peaks_fundamental_mode[i]] < high_border:
                 for k in range(num_of_rings):
-                    self.ring_index.append(self.peaks_fundamental_mode[i-k])
+                    self.ring_index.append(self.peaks_fundamental_mode[i - k])
                 break
         if len(self.ring_index) == 0:
             print('Error while finding the referrence peaks')
@@ -228,18 +256,18 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                     if current_freq > self.scan_freqs[0]:
                         break
                     for j in self.peaks_fundamental_mode:
-                        if current_freq > self.scan_freqs[j] - 0.03 and current_freq < self.scan_freqs[j]+ 0.03:
+                        if current_freq > self.scan_freqs[j] - 0.03 and current_freq < self.scan_freqs[j] + 0.03:
                             # the first reference peak
-                            self.classified_fund_peaks[self.scan_freqs[j]] = np.mod(self.ring_index.index(ring)+3,3)
+                            self.classified_fund_peaks[self.scan_freqs[j]] = np.mod(self.ring_index.index(ring) + 3, 3)
                     current_freq = current_freq + FSR
             current_freq = self.scan_freqs[ring]
-            while current_freq > self.scan_freqs[len(self.scan_freqs)-1]:
+            while current_freq > self.scan_freqs[len(self.scan_freqs) - 1]:
                 for i in range(6):
-                    if current_freq < self.scan_freqs[len(self.scan_freqs)-1]:
+                    if current_freq < self.scan_freqs[len(self.scan_freqs) - 1]:
                         break
                     for j in self.peaks_fundamental_mode:
-                        if current_freq > self.scan_freqs[j] - 0.03 and current_freq < self.scan_freqs[j]+ 0.03:
-                            self.classified_fund_peaks[self.scan_freqs[j]] = np.mod(self.ring_index.index(ring)+3,3)
+                        if current_freq > self.scan_freqs[j] - 0.03 and current_freq < self.scan_freqs[j] + 0.03:
+                            self.classified_fund_peaks[self.scan_freqs[j]] = np.mod(self.ring_index.index(ring) + 3, 3)
                     current_freq = current_freq - FSR
 
         # create rings array with fund and high modes peaks
@@ -253,11 +281,11 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 self.classified_peaks.append(" ")
 
         return
-        #self.peak_groups = self.divide_into_peak_groups(init_frequency=init_frequency,fsr=fsr)
-        #classified_peaks = self.relate_pk_to_ring(init_frequency=init_frequency,num_of_rings=num_of_rings,fsr=fsr,diff_between_groups=diff_between_groups)
-        #return classified_peaks
+        # self.peak_groups = self.divide_into_peak_groups(init_frequency=init_frequency,fsr=fsr)
+        # classified_peaks = self.relate_pk_to_ring(init_frequency=init_frequency,num_of_rings=num_of_rings,fsr=fsr,diff_between_groups=diff_between_groups)
+        # return classified_peaks
 
-    def divide_into_peak_groups(self,init_frequency,fsr):
+    def divide_into_peak_groups(self, init_frequency, fsr):
         '''
         divides a group of oeaks intogroups of different resonances
         :param fsr_dist - the distance between peaks
@@ -268,10 +296,11 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         '''
         peak_groups = []
         fsr_init_freq = init_frequency
-        if self.peaks_fundamental_mode == []:   #prevent an error when there is no fundamental mode peaks
+        if self.peaks_fundamental_mode == []:  # prevent an error when there is no fundamental mode peaks
             return peak_groups
-        while fsr_init_freq<self.scan_freqs[self.peaks_fundamental_mode[0]] :
-            peak_groups.append([peak for peak in self.peaks_fundamental_mode if fsr_init_freq<self.scan_freqs[peak]<(fsr_init_freq+fsr)])
+        while fsr_init_freq < self.scan_freqs[self.peaks_fundamental_mode[0]]:
+            peak_groups.append([peak for peak in self.peaks_fundamental_mode if
+                                fsr_init_freq < self.scan_freqs[peak] < (fsr_init_freq + fsr)])
             fsr_init_freq += fsr
         return peak_groups
 
@@ -284,20 +313,20 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.init_wavelength = 773.4
         self.final_wavelength = 775.5
         for iteration in range(2):
-            print('iteration '+str(iteration))
+            print('iteration ' + str(iteration))
             self.get_wide_spectrum(parmeters_by_console=False)
 
             self.scan_freqs = self.get_scan_freqs(scan_wavelengths=self.scan_wavelengths)
 
             # smooth spectrum
             interpolated_spectrum = self.smooth_and_normalize_spectrum(decimation=10,
-                                                                                  spectrum=self.total_spectrum,
-                                                                                  wavelengths=self.scan_wavelengths)
+                                                                       spectrum=self.total_spectrum,
+                                                                       wavelengths=self.scan_wavelengths)
             peaks_width, peaks, peaks_properties = self.find_peaks_in_spectrum(prominence=0.3,
-                                                                                          height=None,
-                                                                                          distance=30,
-                                                                                          rel_height=0.5, spectrum=
-                                                                                          interpolated_spectrum[0])
+                                                                               height=None,
+                                                                               distance=30,
+                                                                               rel_height=0.5, spectrum=
+                                                                               interpolated_spectrum[0])
 
             self.peaks_for_scatter += self.scan_wavelengths[peaks].tolist()
             self.peaks_width_for_scatter += peaks_width[0].tolist()
@@ -320,18 +349,22 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # taking the best iteration peaks and widths
         self.best_peaks_for_scatter = []
         self.best_peaks_width_for_scatter = []
-        self.best_peaks_for_scatter = [self.peaks_for_scatter[i] for i in range(len(self.iterations_for_scatter)) if self.iterations_for_scatter[i] == iteration]
-        self.best_peaks_width_for_scatter = [self.peaks_width_for_scatter[i] for i in range(len(self.iterations_for_scatter)) if
-                              self.iterations_for_scatter[i] == iteration]
-
-
+        self.best_peaks_for_scatter = [self.peaks_for_scatter[i] for i in range(len(self.iterations_for_scatter)) if
+                                       self.iterations_for_scatter[i] == iteration]
+        self.best_peaks_width_for_scatter = [self.peaks_width_for_scatter[i] for i in
+                                             range(len(self.iterations_for_scatter)) if
+                                             self.iterations_for_scatter[i] == iteration]
 
         # remove double peaks
-        self.best_peaks_width_for_scatter = [self.best_peaks_width_for_scatter[i] for i in range(0,len(self.best_peaks_for_scatter)) if round(self.best_peaks_for_scatter[i],1) != round(self.best_peaks_for_scatter[i-1],1)]
-        self.peaks_for_FSR = [self.best_peaks_for_scatter[i] for i in range(0,len(self.best_peaks_for_scatter)) if round(self.best_peaks_for_scatter[i],1) != round(self.best_peaks_for_scatter[i-1],1)]
+        self.best_peaks_width_for_scatter = [self.best_peaks_width_for_scatter[i] for i in
+                                             range(0, len(self.best_peaks_for_scatter)) if
+                                             round(self.best_peaks_for_scatter[i], 1) != round(
+                                                 self.best_peaks_for_scatter[i - 1], 1)]
+        self.peaks_for_FSR = [self.best_peaks_for_scatter[i] for i in range(0, len(self.best_peaks_for_scatter)) if
+                              round(self.best_peaks_for_scatter[i], 1) != round(self.best_peaks_for_scatter[i - 1], 1)]
         # find the K thinner peak = the max width for fundamental mode
         self.best_peaks_width_for_scatter.sort()
-        self.division_width_between_modes_in_samples = self.best_peaks_width_for_scatter[3]+1
+        self.division_width_between_modes_in_samples = self.best_peaks_width_for_scatter[3] + 1
 
         self.find_FSR()
 
@@ -344,20 +377,20 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         self.final_wavelength = 777
 
         for iteration in range(1):
-            print('iteration '+str(iteration))
+            print('iteration ' + str(iteration))
             self.get_wide_spectrum(parmeters_by_console=False)
 
             self.scan_freqs = self.get_scan_freqs(scan_wavelengths=self.scan_wavelengths)
 
             # smooth spectrum
             interpolated_spectrum = self.smooth_and_normalize_spectrum(decimation=10,
-                                                                                  spectrum=self.total_spectrum,
-                                                                                  wavelengths=self.scan_wavelengths)
+                                                                       spectrum=self.total_spectrum,
+                                                                       wavelengths=self.scan_wavelengths)
             peaks_width, peaks, peaks_properties = self.find_peaks_in_spectrum(prominence=0.3,
-                                                                                          height=None,
-                                                                                          distance=30,
-                                                                                          rel_height=0.5, spectrum=
-                                                                                          interpolated_spectrum[0])
+                                                                               height=None,
+                                                                               distance=30,
+                                                                               rel_height=0.5, spectrum=
+                                                                               interpolated_spectrum[0])
             self.fundamental_mode, self.high_mode = self.divide_to_different_modes(peaks=peaks,
                                                                                    division_width_between_modes=self.division_width_between_modes_in_samples,
                                                                                    modes_width=peaks_width[0])
@@ -366,22 +399,28 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         self.fundamental_mode_for_FSR = self.scan_wavelengths[self.fundamental_mode[1]]
         self.fundamental_mode_width_for_FSR = self.fundamental_mode[0]
-        self.fundamental_mode_width_for_FSR = [self.fundamental_mode_width_for_FSR[i] for i in range(0, len(self.fundamental_mode_for_FSR)) if round(self.fundamental_mode_for_FSR[i], 1) != round(self.fundamental_mode_for_FSR[i - 1], 1)]
-        self.fundamental_mode_for_FSR = [self.fundamental_mode_for_FSR[i] for i in range(0, len(self.fundamental_mode_for_FSR)) if round(self.fundamental_mode_for_FSR[i], 1) != round(self.fundamental_mode_for_FSR[i - 1], 1)]
+        self.fundamental_mode_width_for_FSR = [self.fundamental_mode_width_for_FSR[i] for i in
+                                               range(0, len(self.fundamental_mode_for_FSR)) if
+                                               round(self.fundamental_mode_for_FSR[i], 1) != round(
+                                                   self.fundamental_mode_for_FSR[i - 1], 1)]
+        self.fundamental_mode_for_FSR = [self.fundamental_mode_for_FSR[i] for i in
+                                         range(0, len(self.fundamental_mode_for_FSR)) if
+                                         round(self.fundamental_mode_for_FSR[i], 1) != round(
+                                             self.fundamental_mode_for_FSR[i - 1], 1)]
 
         FSR_1 = self.scan_freqs[self.fundamental_mode_for_FSR[4]] - self.scan_freqs[self.fundamental_mode_for_FSR[0]]
         FSR_2 = self.scan_freqs[self.fundamental_mode_for_FSR[5]] - self.scan_freqs[self.fundamental_mode_for_FSR[1]]
 
-        print('FSR calculated value = '+str(FSR_1)+' and '+str(FSR_2))
+        print('FSR calculated value = ' + str(FSR_1) + ' and ' + str(FSR_2))
 
-        #self.all_peaks_for_scatter.append(self.scan_freqs[peaks])
+        # self.all_peaks_for_scatter.append(self.scan_freqs[peaks])
         # self.all_peaks_width_for_scatter.append(peaks_width[0])
-        self.FSR_1 = min(FSR_1,FSR_2) - 0.2
-        self.FSR_2 = max(FSR_1,FSR_2) + 0.2
+        self.FSR_1 = min(FSR_1, FSR_2) - 0.2
+        self.FSR_2 = max(FSR_1, FSR_2) + 0.2
 
         return
 
-    def relate_pk_to_ring(self,init_frequency,fsr,num_of_rings,diff_between_groups):
+    def relate_pk_to_ring(self, init_frequency, fsr, num_of_rings, diff_between_groups):
         '''
 
         relates peaks of fundamental mode to their ring.
@@ -396,7 +435,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             classified_peaks.append([])  # In each iteration, add an empty list to the main list
 
         # generate groups of peaks all relatively distanced from the initial frequency
-        peak_group_relative_dist = [[peak -(init_frequency+fsr*fsr_num) for peak in peak_group]
+        peak_group_relative_dist = [[peak - (init_frequency + fsr * fsr_num) for peak in peak_group]
                                     for fsr_num, peak_group in enumerate(self.peak_groups)]
 
         # find a group with num_of_rings peaks to be a reference for order peaks
@@ -413,11 +452,11 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         for peak_group in range(len(peak_group_relative_dist)):
             for i in range(num_of_rings):
                 numpy_pk_group = np.asarray(peak_group_relative_dist[peak_group])
-                peak = np.where(numpy_pk_group-full_pk_group[i]<diff_between_groups)
-                classified_peaks[peak_group].append((peak_group_relative_dist[peak_group][peak[0][0]],i))
+                peak = np.where(numpy_pk_group - full_pk_group[i] < diff_between_groups)
+                classified_peaks[peak_group].append((peak_group_relative_dist[peak_group][peak[0][0]], i))
         return classified_peaks
 
-    def division_width_choose(self,division_width_between_modes_in_samples=None):
+    def division_width_choose(self, division_width_between_modes_in_samples=None):
         # plot: 1. the spectrum
         # 2. a histogram of the peaks widths
         # 3. list of the widths
@@ -428,7 +467,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         plt.figure()
         plt.bar(list(range(1, 21)), np.histogram(peaks_width_in_Ghz, int(np.ptp(peaks_width_in_Ghz)))[0][:20])
-        #plt.plot(np.histogram(peaks_width_in_Ghz,int(np.ptp(peaks_width_in_Ghz)/20))[1][:-1],np.histogram(peaks_width_in_Ghz,int(np.ptp(peaks_width_in_Ghz)/10))[0])
+        # plt.plot(np.histogram(peaks_width_in_Ghz,int(np.ptp(peaks_width_in_Ghz)/20))[1][:-1],np.histogram(peaks_width_in_Ghz,int(np.ptp(peaks_width_in_Ghz)/10))[0])
         plt.ylabel('Number of peaks')
         plt.xlabel('Width [Ghz]')
         plt.pause(0.1)
@@ -437,14 +476,15 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         widths_dictionary = Counter(peaks_width_in_Ghz)
         sorted_keys = sorted(list(widths_dictionary.keys()))
         sorted_widths_dictionary = {i: widths_dictionary[i] for i in sorted_keys}
-        print("list of peaks widths-  width [GHz] : number of peaks\n"+str(sorted_widths_dictionary))
+        print("list of peaks widths-  width [GHz] : number of peaks\n" + str(sorted_widths_dictionary))
         print("choose width value for division between modes:")
         division_value = int(input())
         plt.close('all')
         return division_value / 1000
 
     @classmethod
-    def divide_to_different_modes(self,peaks,modes_width, division_width_between_modes):  # max_diff_between_widths_coeff=0.1):
+    def divide_to_different_modes(self, peaks, modes_width,
+                                  division_width_between_modes):  # max_diff_between_widths_coeff=0.1):
         '''
         divides peaks into different modes depending on their width
         :param diff_condition_between_modes_width - defines the difference in mode width to be considered as the same mode
@@ -453,54 +493,65 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # cl = cluster.HierarchicalClustering(modes_width, lambda x, y: abs(x - y))
         # self.peaks_width_per_mode = cl.getlevel(max_diff_between_widths_coeff*np.mean(modes_width)) fundamental
 
-        widths_fundamental_mode = [a for a in modes_width if a<division_width_between_modes]
+        widths_fundamental_mode = [a for a in modes_width if a < division_width_between_modes]
         peaks_fund_mode_ind = [j for j, x in enumerate(modes_width) if x in widths_fundamental_mode]
         peaks_fundamental_mode = [peaks[k] for k in peaks_fund_mode_ind]
         fundamental_mode = [widths_fundamental_mode, peaks_fundamental_mode, peaks_fund_mode_ind]
 
-        widths_high_mode = [a for a in modes_width if a>division_width_between_modes]
+        widths_high_mode = [a for a in modes_width if a > division_width_between_modes]
         peaks_high_mode_ind = [j for j, x in enumerate(modes_width) if x in widths_high_mode]
         peaks_high_mode = [peaks[k] for k in peaks_high_mode_ind]
         high_mode = [widths_high_mode, peaks_high_mode, peaks_high_mode_ind]
 
-        return fundamental_mode,high_mode
+        return fundamental_mode, high_mode
 
     @classmethod
-    def plot_peaks(self,scan_freqs,interpolated_spectrum,peaks_per_mode,peaks_properties):
+    def plot_peaks(self, scan_freqs, interpolated_spectrum, peaks_per_mode, peaks_properties):
         peaks_fig = plt.figure()
         plt.plot(scan_freqs, interpolated_spectrum)
         for i in range(len(peaks_per_mode)):
             plt.plot(scan_freqs[peaks_per_mode[i]], interpolated_spectrum[peaks_per_mode[i]], 'o')
             # this line supposed to print the peak widths as the python function found them
-            #plt.hlines(y=interpolated_spectrum[peaks_per_mode[i]], xmin=scan_freqs[peaks_properties["left_bases"]],
+            # plt.hlines(y=interpolated_spectrum[peaks_per_mode[i]], xmin=scan_freqs[peaks_properties["left_bases"]],
             #        xmax=scan_freqs[peaks_properties["right_bases"]], color="C1")
         plt.pause(0.1)
         plt.show(block=False)
 
         return peaks_fig
 
-    def plot_lorenzians(self, x_axis):
+    def plot_lorenzians(self):
         self.lorenzian_fig = plt.figure()
-        plt.plot(x_axis, self.interpolated_spectrum)
-        plt.title('The Cosy wl error [nm] - '+str(self.wl_error)+', freq error [THz] - '+str(self.get_scan_freqs(self.wl_error)))
+        plt.plot(self.scan_freqs, self.interpolated_spectrum, linestyle = 'dotted' ,label='Meas normed (global max)')
+        plt.xlabel('Frequency [THz]')
+        plt.ylabel('Normalized Voltage (No units)')
         for i in range(len(self.peaks_per_mode)):
-            plt.plot(x_axis[self.peaks_per_mode[i]], self.interpolated_spectrum[self.peaks_per_mode[i]], 'o')
+            plt.plot(self.scan_freqs[self.peaks_per_mode[i]], self.interpolated_spectrum[self.peaks_per_mode[i]], 'o')
         for i in range(len(self.fit_res)):
-            if len(self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i])):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i]))]) == 0:
+            if len(self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i] * self.width_increase[i])):(
+                    self.peaks[i] + int(self.peaks_width[0][i] * self.width_increase[i]))]) == 0:
                 fix_normalitation = 1
             else:
-                fix_normalitation = np.max(self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i] )):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i]))])
-            plt.plot(x_axis[
-                     (self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i] )):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i] ))],
-                     fix_normalitation*self.Lorenzian(x_axis[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i] )):(
-                             self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i]))], *self.fit_res[i]), 'r-')
+                fix_normalitation = np.max(self.interpolated_spectrum[
+                                           (self.peaks[i] - int(self.peaks_width[0][i] * self.width_increase[i])):(
+                                                       self.peaks[i] + int(
+                                                   self.peaks_width[0][i] * self.width_increase[i]))])
+            plt.plot(
+                self.scan_freqs[
+                (self.peaks[i] - int(self.peaks_width[0][i] * self.width_increase[i])):(
+                            self.peaks[i] + int(self.peaks_width[0][i] * self.width_increase[i]))
+                ],
+                # fix_normalitation*self.Lorenzian(self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i] )):(
+                fix_normalitation * self.fit_function(
+                    self.scan_freqs[(self.peaks[i] - int(self.peaks_width[0][i] * self.width_increase[i])):(
+                            self.peaks[i] + int(self.peaks_width[0][i] * self.width_increase[i]))], *self.fit_res[i]),
+                'r-')
 
     @classmethod
-    def plot_peaks_colored_by_width(self,ax,peaks_freqs,Y,colors):
+    def plot_peaks_colored_by_width(self, ax, peaks_freqs, Y, colors):
         '''
         plot peaks colored by width
         '''
-        ax.scatter(peaks_freqs,Y, c=colors)
+        ax.scatter(peaks_freqs, Y, c=colors)
 
     # needed to be class method so it can be called without generating an instance
     @classmethod
@@ -513,15 +564,30 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         decimated_scanned_wavelengths = wavelengths[0:-1:decimation]
 
         cs = CubicSpline(decimated_scanned_wavelengths, decimated_total_spectrum)
-        #wavelengths = np.linspace(min(wavelengths),min(wavelengths),len(wavelengths))
+        # wavelengths = np.linspace(min(wavelengths),min(wavelengths),len(wavelengths))
 
         interpolated_spectrum = cs(wavelengths)
-        norm_interpolated_spectrum = interpolated_spectrum/max(interpolated_spectrum)
-        return norm_interpolated_spectrum,interpolated_spectrum
+        norm_interpolated_spectrum = interpolated_spectrum / max(interpolated_spectrum)
+        return norm_interpolated_spectrum, interpolated_spectrum
 
+    # ---- YONATAN ----
+    def plot_norm_measurments(self):
+        for i, peak_freq in enumerate(self.scan_freqs[self.peaks]):
+            peak_index = self.peaks[i]
+            indices_range = slice(
+                peak_index - int(self.peaks_width[0][i] * self.width_increase[i]),
+                peak_index + int(self.peaks_width[0][i] * self.width_increase[i])
+            )
+            normalized_local_spectrum = self.interpolated_spectrum_unNorm[indices_range] / self.maximum_list[i]
+            if i == 0:
+                plt.plot(self.scan_freqs[indices_range], normalized_local_spectrum, linestyle = 'dashed', label='Normalized Meas', color='k')
+            else:
+                plt.plot(self.scan_freqs[indices_range], normalized_local_spectrum, linestyle = 'dashed', color='k')
+
+    # ---------
     # needed to be class method so it can be called without generating an instance
     @classmethod
-    def find_peaks_in_spectrum(self,prominence,height,distance,rel_height,spectrum):
+    def find_peaks_in_spectrum(self, prominence, height, distance, rel_height, spectrum):
         '''
         find peaks in transmission spectrum
         :param prominence: The prominence of a peak measures how much a peak stands out from the surrounding
@@ -542,9 +608,9 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                                     ‘prominences’, ‘right_bases’, ‘left_bases’
                                     If prominence is given, these keys are accessible. See peak_prominences for a description of their content.
         '''
-        peaks, peaks_properties = find_peaks(-spectrum, prominence=prominence,height=height,distance=distance)
+        peaks, peaks_properties = find_peaks(-spectrum, prominence=prominence, height=height, distance=distance)
         peaks_width = peak_widths(-spectrum, peaks, rel_height=rel_height)
-        peaks_width = (peaks_width[0],-peaks_width[1],peaks_width[2],peaks_width[3])
+        peaks_width = (peaks_width[0], -peaks_width[1], peaks_width[2], peaks_width[3])
         return peaks_width, peaks, peaks_properties
 
     def fit_lorenzians(self):
@@ -552,18 +618,21 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
         :return: fit_quality - the standard deviation errors on the parameters
         '''
-        #the frequencies of the scan obtained from wavelengths
+        # the frequencies of the scan obtained from wavelengths
         fit_parameters = []
         fit_quality = []
         self.width_increase = []
-        print('number of peaks in scan: '+str(len(self.peaks)))
+        self.maximum_list = []
+
+        print('number of peaks in scan: ' + str(len(self.peaks)))
         for i in range(len(self.peaks)):
             # initial guess
-            kappa_guess = abs(self.scan_freqs[self.peaks_width[3][i].astype(int)]-self.scan_freqs[self.peaks_width[2][i].astype(int)]) # a guess for the aprrox width of the lorenzian [THz]
-            x_dc_guess = self.scan_freqs[self.peaks[i]] # a guess for the central frequency [THz]
-            y_dc_guess = self.peaks_properties["prominences"][i]+self.interpolated_spectrum[self.peaks[i]]
-            amp_guess = y_dc_guess-self.interpolated_spectrum[self.peaks[i]]
-            initial_guess = np.array([kappa_guess/2, kappa_guess/2, x_dc_guess,y_dc_guess,amp_guess,0])
+            kappa_guess = abs(self.scan_freqs[self.peaks_width[3][i].astype(int)] - self.scan_freqs[
+                self.peaks_width[2][i].astype(int)])  # a guess for the aprrox width of the lorenzian [THz]
+            x_dc_guess = self.scan_freqs[self.peaks[i]]  # a guess for the central frequency [THz]
+            y_dc_guess = self.peaks_properties["prominences"][i] + self.interpolated_spectrum[self.peaks[i]]
+            amp_guess = y_dc_guess - self.interpolated_spectrum[self.peaks[i]]
+            initial_guess = np.array([kappa_guess / 2, kappa_guess / 2, x_dc_guess, y_dc_guess, amp_guess, 0])
 
             # self.width_increase = 1.7*np.ones(len(self.peaks))
             self.width_increase.append(self.curve_fit_for_diff_base_widths(kappa_guess, x_dc_guess, y_dc_guess, amp_guess, initial_guess, i))
@@ -578,12 +647,30 @@ class AnalyzeSpectrum(TransmissionSpectrum):
             y_data = self.interpolated_spectrum_unNorm[
                      start_index:(self.peaks[i] + int(self.peaks_width[0][i] * self.width_increase[i]))]
 
-            try:
-                popt, pcov = curve_fit(self.Lorenzian, x_data,
-                                       y_data / max(y_data),
-                                       bounds=([0, 0, 0, y_dc_guess * 0.5, amp_guess / 3, 0],
-                                               [1e3, 1e3, 1e3, 1, amp_guess * 3, 1]), p0=initial_guess)
+            # ----- YONATAN -------
+            parameters_bounds = [
+                [0, 0, 0, y_dc_guess * 0.5, amp_guess / 3, 0],
+                [1e3, 1e3, 1e3, 1, amp_guess * 3, 1]
+            ]
 
+            # only if h is set to zero, remove the relevant array elements -
+            # That is, from the initial guess array and from the parameters bounds array.
+            if self.h_is_zero:
+                initial_guess = initial_guess[:-1]
+                parameters_bounds[0].pop()
+                parameters_bounds[1].pop()
+
+            try:
+                self.maximum_list.append(max(y_data))
+                # popt, pcov = curve_fit(self.Lorenzian, x_data,
+                popt, pcov = curve_fit(self.fit_function, x_data,
+                                       y_data / max(y_data),
+                                       bounds=parameters_bounds,
+                                       p0=initial_guess)
+
+                # if fit converged, add value 1 per fit attempt to the list (success).
+                self.fit_conv_state.append(1)
+                # -------------------------
                 fit_parameters.append(popt)
                 fit_quality.append(np.sqrt(np.diag(pcov)))
 
@@ -591,13 +678,196 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 print(bcolors.WARNING + "Warning: peak number " + str(
                     i) + " could not be fitted to lorenzian" + bcolors.ENDC)
                 # prevent error in case curve_fit didn't succed
-                popt = np.zeros(6)
-                pcov = np.zeros((6,6))
+                n_parameters = len(initial_guess)
+                popt = np.zeros(n_parameters)
+                pcov = np.zeros((n_parameters, n_parameters))
                 fit_parameters.append(0 * popt)
                 fit_quality.append(np.sqrt(np.diag(0 * pcov)))
+
+                # if fit didn't converged, add value 0 per fit attempt to the list (failure).
+                self.fit_conv_state.append(0)
+
         return [fit_parameters, fit_quality]
 
-    def curve_fit_for_diff_base_widths(self,kappa_guess,x_dc_guess,y_dc_guess,amp_guess,initial_guess, i):
+    def get_extinctions(self) -> list:
+        """This function extracts and returns 2 versions of the extinctions:
+         1. calculated from the fit parameters.
+         2. local minimums of the measured data. Using the indices of the peaks (already found in the function find_peaks_in_spectrum()).
+
+         NOTE: should be called after fit, since it is parameters dependent (after fit_lorenzians() was ran).
+        Returns:
+            list: containing 2 more lists for each version of the calculated extinctions, where each list contains the result per peak/deep.
+        """
+        # initialize 3 arrays to fill during the function's run
+        extinctions_fit = []
+        extinctions_measured = []
+
+        # run over all the frequencies of the peaks (peak_freq), and their sorted index (i = 0, 1, ...)
+        for i, peak_freq in enumerate(self.scan_freqs[self.peaks]):
+            peak_index = self.peaks[i]
+
+            indices_range = slice(
+                peak_index - int(self.peaks_width[0][i] * self.width_increase[i]),
+                peak_index + int(self.peaks_width[0][i] * self.width_increase[i])
+            )
+
+            local_freq_array = self.scan_freqs[indices_range]
+
+            # increase the frequencies density, and range
+            freq_range = (local_freq_array[0], local_freq_array[-1])
+            increased_samples = 400
+            increase_range = 4 * abs(freq_range[0] - freq_range[1])
+
+            local_freq_array_denser = np.linspace(
+                freq_range[0] - increase_range,
+                freq_range[1] + increase_range,
+                increased_samples
+            )
+
+            if len(self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i])):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i]))]) == 0:
+                fix_normalization = 1
+            else:
+                fix_normalization = np.max(self.interpolated_spectrum[(self.peaks[i] - int(self.peaks_width[0][i]*self.width_increase[i] )):(self.peaks[i] + int(self.peaks_width[0][i]*self.width_increase[i]))])
+
+            lorenzian_array = fix_normalization * self.fit_function(local_freq_array_denser, *self.fit_res[i])
+            # lorenzian_array = self.fit_function(local_freq_array_denser, *self.fit_res[i])
+
+            local_minimum_fit = np.amin(lorenzian_array)
+            local_minimum_index = np.where(lorenzian_array == np.amin(lorenzian_array))[0][0]
+            f_min = local_freq_array_denser[local_minimum_index]
+
+
+            # plt.plot(local_freq_array_denser, fix_normalitation*lorenzian_array, label=f'peak_freq={round(peak_freq, 2)}')
+            plt.plot(local_freq_array_denser, lorenzian_array, label=f'peak_freq={round(peak_freq, 2)}')
+            # plt.scatter(f_min, fix_normalitation * local_minimum_fit, marker='+', label=f'peak_index={round(peak_freq, 2)}')
+            plt.scatter(f_min, local_minimum_fit, marker='+', label=f'peak_index={round(peak_freq, 2)}')
+
+            # append extinction from fit to the list
+            extinctions_fit.append(local_minimum_fit)
+
+            # append extinction from measurements to the list
+            extinctions_measured.append(self.interpolated_spectrum_unNorm[peak_index] / self.maximum_list[i])
+
+        plt.legend()
+        return [extinctions_fit, extinctions_measured]
+
+    def get_FWHM(self) -> list:
+        """
+        This function extracts and returns a list of all the Full Width at Half Max (FWHM)
+        found for the curves fits.
+        1. runs over all deeps/peaks, and only if the peak's curve fit been successful, proceeds.
+        2. creates a denser frequencies values list (more values per frequency region) and a bit wider region,
+        3. this, together with the fit values at those frequencies, are then given to the function calculate_FWHM(),
+        which returns the FWHM value of the curve.
+        4. The value is then appended to the list.
+
+        NOTE: should be called after fit, since it is parameters dependent (after fit_lorenzians() was ran).
+
+        Returns:
+            list: all values of FWHM per curve fit.
+        """
+        # the FWHM list with length the number of peaks, where initially all are Nones.
+        FWHM_list = [None] * len(self.fit_res)
+
+        # run over all the frequencies of the peaks (peak_freq), and their sorted index (i = 0, 1, ...)
+        for i, peak_freq in enumerate(self.scan_freqs[self.peaks]):
+
+            # if fit succeeded, find and add the FWHM value to the list.
+            if self.fit_conv_state[i]:
+                peak_index = self.peaks[i]
+                if len(self.interpolated_spectrum[
+                       (self.peaks[i] - int(self.peaks_width[0][i] * self.width_increase[i])):(
+                               self.peaks[i] + int(self.peaks_width[0][i] * self.width_increase[i]))]) == 0:
+                    fix_normalization = 1
+                else:
+                    fix_normalization = np.max(self.interpolated_spectrum[
+                                               (self.peaks[i] - int(self.peaks_width[0][i] * self.width_increase[i])):(
+                                                           self.peaks[i] + int(
+                                                       self.peaks_width[0][i] * self.width_increase[i]))])
+
+                indices_range = slice(
+                    peak_index - int(self.peaks_width[0][i] * self.width_increase[i]),
+                    peak_index + int(self.peaks_width[0][i] * self.width_increase[i])
+                )
+
+                local_freq_array = self.scan_freqs[indices_range]
+
+                # increase the frequencies density, and range
+                freq_range = (local_freq_array[0], local_freq_array[-1])
+                increased_samples = 100
+                increase_range = 2 * abs(freq_range[0] - freq_range[1])
+                local_freq_array_denser = np.linspace(
+                    freq_range[0] - increase_range,
+                    freq_range[1] + increase_range,
+                    increased_samples
+                )
+                lorenzian_array = fix_normalization * self.fit_function(local_freq_array_denser, *self.fit_res[i])
+                FWHM_list[i] = self.calculate_FWHM(local_freq_array_denser, lorenzian_array, peak_freq)
+
+        #         plt.plot(local_freq_array_denser, lorenzian_array, label=f'peak_freq={peak_freq}')
+        #
+        # plt.legend()
+
+        return FWHM_list
+
+    def calculate_FWHM(self, x: np.ndarray, y: np.ndarray, peak_freq: float = None) -> float:
+        """This function calculates the Full Width at Half Max (FWHM) of a curve function,
+        by searching in each discrete values ("brut force" method).
+
+        Args:
+            x (np.ndarray): the independent argument. An array of x-axis value.
+            y (np.ndarray): the dependent argument. An array of y-axis value.
+            peak_freq (float, optional): The considered frequency of the deep/peak. Defaults to None.
+
+        Returns:
+            float: The value of FWHM.
+        """
+        # get local minimum and it's "local" index
+        local_minimum = np.amin(y)
+
+        # get local maximum and it's "local" index
+        local_maximum = np.amax(y)
+
+        # get local half deep/peak value and it's "local" indices
+        search_error = 0.1
+        half_maximum_value = (local_maximum - local_minimum) / 2
+        half_maximum_indices = np.where(abs(y - half_maximum_value) <= search_error)[0]
+
+        search_error_decrease = 0.001
+        iteration = 0
+
+        # only if there are more than two values found, begin narrowing down the search region
+        if len(half_maximum_indices) > 2:
+
+            # while more than two values are found
+            while len(half_maximum_indices) != 2:
+                half_maximum_indices = np.where(abs(y - half_maximum_value) <= search_error)[0]
+
+                # if the search reached less than 2 values
+                # 1. go back to the previous search region
+                # 2. decrease the value by which the region is decreasing.
+                if len(half_maximum_indices) < 2:
+                    search_error += 2 * search_error_decrease
+                    search_error_decrease /= 10
+                print(iteration, len(half_maximum_indices))
+
+                # decrease the search region
+                search_error -= search_error_decrease
+
+                iteration += 1
+
+            FWHM_xs = x[half_maximum_indices]
+            FWHM = FWHM_xs[1] - FWHM_xs[0]
+            # if peak_freq != None:
+            #     plt.scatter(FWHM_xs, y[half_maximum_indices], label=f'peak_freq={peak_freq}')
+
+        else:
+            FWHM = None
+            print(f"Could not find FWHM for peak_freq={peak_freq}")
+
+        return FWHM
+
+    def curve_fit_for_diff_base_widths(self, kappa_guess, x_dc_guess, y_dc_guess, amp_guess, initial_guess, i):
         '''
         run curve_fit function with set of different widths of x_data and y_data: [4, 3.8, 3.6,... 2]
         and choose automatically the best fit
@@ -617,9 +887,9 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # This params are for comparing between the different iterations
         x_data_peak = self.scan_freqs[start_index:(self.peaks[i] + int(self.peaks_width[0][i] * width_increase))]
         y_data_peak = self.interpolated_spectrum_unNorm[
-                 start_index:(self.peaks[i] + int(self.peaks_width[0][i] * width_increase))]
+                      start_index:(self.peaks[i] + int(self.peaks_width[0][i] * width_increase))]
 
-        print('Peak number '+str(i)+', in frequency '+str(self.scan_freqs[self.peaks[i]])[:7])
+        print('Peak number ' + str(i) + ', in frequency ' + str(self.scan_freqs[self.peaks[i]])[:7])
         if i == 1 or i == 2 or i == 12:
             width_increase = 0.2
         plot = 0
@@ -637,21 +907,26 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                      start_index:(self.peaks[i] + int(self.peaks_width[0][i] * width_increase))]
 
             try:
-                popt, pcov = curve_fit(self.Lorenzian, x_data,
+                # popt, pcov = curve_fit(self.Lorenzian, x_data,
+                #                        y_data / max(y_data),
+                #                        bounds=([0, 0, 0, y_dc_guess * 0.5, amp_guess / 3, 0],
+                #                                [1e3, 1e3, 1e3, 1, amp_guess * 3, 1]), p0=initial_guess)
+                popt, pcov = curve_fit(self.fit_function, x_data,
                                        y_data / max(y_data),
                                        bounds=([0, 0, 0, y_dc_guess * 0.5, amp_guess / 3, 0],
                                                [1e3, 1e3, 1e3, 1, amp_guess * 3, 1]), p0=initial_guess)
 
                 # fit RMS error
-                error_vec = self.Lorenzian(x_data_peak, popt[0],popt[1],popt[2],popt[3],popt[4],popt[5])-(y_data_peak / max(y_data))
+                error_vec = self.fit_function(x_data_peak, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5]) - (
+                            y_data_peak / max(y_data))
                 cov_values[width_increase] = sum(error_vec ** 2)
 
                 if plot == 1:
                     # plot the fit and the real data for a single peak and width_increase val
                     plt.figure()
-                    plt.plot(self.Lorenzian(x_data, popt[0],popt[1],popt[2],popt[3],popt[4],popt[5]),'g')
+                    plt.plot(self.fit_function(x_data, popt[0], popt[1], popt[2], popt[3], popt[4], popt[5]), 'g')
                     plt.plot(y_data / max(y_data), 'r')
-                    plt.title('Lorenzian fit for width increase '+str(width_increase))
+                    plt.title('Lorenzian fit for width increase ' + str(width_increase))
                     plt.pause(0.1)
                     plt.show(block=False)
 
@@ -663,8 +938,7 @@ class AnalyzeSpectrum(TransmissionSpectrum):
                 print(bcolors.WARNING + "For width_increase = " + str(width_increase) + ", peak number " + str(
                     i) + " could not be fitted to lorenzian" + bcolors.ENDC)
 
-
-            width_increase = round(width_increase+0.2, 2)
+            width_increase = round(width_increase + 0.2, 2)
         plt.close('all')
         # all fit tries failed
         if cov_values == {}:
@@ -675,13 +949,32 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         # generates a list of resonances with all parameters
         self.analysis_spectrum_parameters = {}
         self.analysis_spectrum_parameters['mode[THz]'] = ["fundamental" if i in self.peaks_fund_mode_ind else "high"
-                                               for i in self.peaks_width_in_Thz]
-        self.analysis_spectrum_parameters['peak_freq[GHz]'] = [round(elem,3) for elem in self.scan_freqs[self.peaks]]
-        self.analysis_spectrum_parameters['kappa_ex[GHz]'] = [round(self.fit_res[i][0]*1e3,3) for i in range(len(self.fit_res))]
-        self.analysis_spectrum_parameters['kappa_i[GHz]'] = [round(self.fit_res[i][1]*1e3,3) for i in range(len(self.fit_res))]
-        self.analysis_spectrum_parameters['h'] = [round(self.fit_res[i][5]*1e3,3) for i in range(len(self.fit_res))]
+                                                          for i in self.peaks_width_in_Thz]
+        self.analysis_spectrum_parameters['peak_freq[GHz]'] = [round(elem, 3) for elem in self.scan_freqs[self.peaks]]
+        self.analysis_spectrum_parameters['kappa_ex[GHz]'] = [round(self.fit_res[i][0] * 1e3, 3) for i in
+                                                              range(len(self.fit_res))]
+        self.analysis_spectrum_parameters['kappa_i[GHz]'] = [round(self.fit_res[i][1] * 1e3, 3) for i in
+                                                             range(len(self.fit_res))]
+        # self.analysis_spectrum_parameters['h'] = [round(self.fit_res[i][5]*1e3,3) for i in range(len(self.fit_res))]
+        if self.h_is_zero:
+            self.analysis_spectrum_parameters['h [GHz]'] = [0] * len(self.fit_res)
+        else:
+            self.analysis_spectrum_parameters['h [GHz]'] = [round(self.fit_res[i][5] * 1e3, 3) for i in
+                                                            range(len(self.fit_res))]
         # The FWHM is the width in 0.5 peaks height, define with 'rel_height'
-        self.analysis_spectrum_parameters['FWHM[GHz]'] = [round(self.peaks_width_in_Thz[i]*1e3,3) for i in range(len(self.peaks_width_in_Thz))]
+        self.analysis_spectrum_parameters['FWHM[GHz]'] = [round(self.peaks_width_in_Thz[i] * 1e3, 3) for i in
+                                                          range(len(self.peaks_width_in_Thz))]
+
+        # get FWHM computed by the fit parameters
+        FWHM_list = self.get_FWHM()
+        self.analysis_spectrum_parameters['FWHM fit [GHz]'] = [None if value is None else round(value * 1e3, 3) for value in FWHM_list]
+
+        [extinctions_fit, extinctions_measured] = self.get_extinctions()
+        self.analysis_spectrum_parameters['Extinctions fit (normalized)'] = [round(value, 3) for value in
+                                                                             extinctions_fit]
+        self.analysis_spectrum_parameters['Extinctions measured'] = [round(value, 3) for value in extinctions_measured]
+        # self.analysis_spectrum_parameters['Extinctions expected'] = [round(value, 3) for value in extinctions_expected]
+
         if self.classified_peaks != []:
             self.analysis_spectrum_parameters['Ring'] = [i for i in self.classified_peaks]
         else:
@@ -692,29 +985,40 @@ class AnalyzeSpectrum(TransmissionSpectrum):
 
     def calc_effective_kappa_and_h(self):
         # returns the geometric average of kappa i, kappa ex and h
-        effective_kappa= []
+        effective_kappa = []
+
         for i in range(len(self.fit_res)):
-            effective_kappa.append(np.sqrt(self.fit_res[i][0] ** 2 + self.fit_res[i][1] ** 2 + self.fit_res[i][5] ** 2))
+            h = 0 if self.h_is_zero else self.fit_res[i][5]
+            # effective_kappa.append(np.sqrt(self.fit_res[i][0] ** 2 + self.fit_res[i][1] ** 2 + self.fit_res[i][5] ** 2))
+            effective_kappa.append(np.sqrt(self.fit_res[i][0] ** 2 + self.fit_res[i][1] ** 2 + h ** 2))
         return effective_kappa
 
     @classmethod
-    def get_scan_freqs(self,scan_wavelengths):
+    def get_scan_freqs(self, scan_wavelengths):
         '''
 
         :return: freqs - in Thz
         '''
         freqs = (C_light * 1e-12) / (scan_wavelengths * 1e-9)
-        #freqs = np.flip(freqs)
+        # freqs = np.flip(freqs)
         return freqs
 
-    def Lorenzian(self,x, kex, ki, x_dc, y_dc,amp,h):
-        #return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
-        #return abs((1 - (2 * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)))) ** 2
-        return (1 -abs( 2 * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2)
+    def Lorenzian(self, x, kex, ki, x_dc, y_dc, amp, h=0):
+        # return abs(y_dc*(1 - 2 *( kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2))
+        # return abs((1 - (2 * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)))) ** 2
+        # return (1 -abs( 2 * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2)  #moshe last version
+
+        return abs(1 - 2 * kex * (1j * (x - x_dc) + (kex + ki)) / (h ** 2 + (1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2
+
+    def Lorenzian_hZero(self, x, kex, ki, x_dc, y_dc, amp):
+        return abs(1 - 2 * kex * (1j * (x - x_dc) + (kex + ki)) / ((1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2
+
+    def Lorenzian_scaled(self, x, kex, ki, x_dc, y_dc, amp, scale):
+        return scale * abs(1 - 2 * kex * (1j * (x - x_dc) + (kex + ki)) / ((1j * (x - x_dc) + (kex + ki)) ** 2)) ** 2
 
     def invert_decimatiom_from_freq_to_samples(self):
-        self.avg_freqs_diff_between_samples = abs(np.mean(np.diff(self.scan_freqs)))  #in THz
-        self.avg_freqs_diff_between_samples = self.avg_freqs_diff_between_samples*1e3 #in GHz
+        self.avg_freqs_diff_between_samples = abs(np.mean(np.diff(self.scan_freqs)))  # in THz
+        self.avg_freqs_diff_between_samples = self.avg_freqs_diff_between_samples * 1e3  # in GHz
         print("what is the resolution, in GHz (The current resolution is %.2f GHz)?" % self.avg_freqs_diff_between_samples)
         resolution_in_GHz = float(input())
         #resolution_in_GHz = float(0.6)
@@ -722,35 +1026,37 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         print("The resolution in samples is: " + str(resolution_in_samples))
         return resolution_in_samples
 
-    def cosy(self,prominence, height=None, distance=30, rel_height=0.5):
+    def cosy(self, prominence, height=None, distance=30, rel_height=0.5):
         self.cosy_smoothed_spec = self.smooth_and_normalize_spectrum(10, self.cosy_spectrum, self.cosy_wavelengths)[0]
-        cosy_peaks_width, cosy_peaks , self.cosy_peaks_prop = self.find_peaks_in_spectrum(prominence, height,distance,rel_height, spectrum=self.cosy_smoothed_spec)
+        cosy_peaks_width, cosy_peaks, self.cosy_peaks_prop = self.find_peaks_in_spectrum(prominence, height, distance,
+                                                                                         rel_height,
+                                                                                         spectrum=self.cosy_smoothed_spec)
         cosy_peak_wavelength = self.cosy_wavelengths[cosy_peaks[0]]
         self.wl_error = 780.24 - cosy_peak_wavelength  # rubidium peak real frequency = 384.231[THz]
-        print('the cosy error [nm] is '+str(np.round(self.wl_error,3)))
+        print('the cosy error [nm] is ' + str(np.round(self.wl_error, 3)))
 
-        #plt.figure()
-        #plt.plot(self.scan_wavelengths, self.total_spectrum)
-        #plt.plot(self.cosy_wavelengths, self.cosy_spectrum)
-        #plt.show()
+        # plt.figure()
+        # plt.plot(self.scan_wavelengths, self.total_spectrum)
+        # plt.plot(self.cosy_wavelengths, self.cosy_spectrum)
+        # plt.show()
 
         self.scan_wavelengths = self.scan_wavelengths + self.wl_error
         self.cosy_wavelengths = self.cosy_wavelengths + self.wl_error
-        #plt.figure()
-        #plt.plot(self.scan_wavelengths, self.total_spectrum)
-        #plt.plot(self.cosy_wavelengths+self.wl_error, self.cosy_spectrum)
-        #plt.show()
+        # plt.figure()
+        # plt.plot(self.scan_wavelengths, self.total_spectrum)
+        # plt.plot(self.cosy_wavelengths+self.wl_error, self.cosy_spectrum)
+        # plt.show()
 
     def detector_noise_compen(self):
         self.total_spectrum = self.total_spectrum - self.detector_noise
         if np.min(self.total_spectrum) < 0:
             self.total_spectrum = self.total_spectrum - self.detector_noise
-            print('Error compensation on the photo diode noise')
+            print('Error compensation of the photo diode noise')
 
         # plot the corrected total spectrum after normalization
-        #plt.figure()
-        #plt.plot(self.scan_wavelengths,self.smooth_and_normalize_spectrum(10, self.total_spectrum, self.scan_wavelengths)[0])
-        #plt.show()
+        # plt.figure()
+        # plt.plot(self.scan_wavelengths,self.smooth_and_normalize_spectrum(10, self.total_spectrum, self.scan_wavelengths)[0])
+        # plt.show()
 
     def cosy_noise_check(self):
 
@@ -758,27 +1064,29 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         plt.figure()
         plt.title('Before & after correction [wavelength]')
         plt.legend(["before", "after"], loc="lower right")
-        plt.plot(self.before_wavelength, self.smooth_and_normalize_spectrum(1, self.total_spectrum+self.detector_noise, self.scan_wavelengths)[0], 'r')
-        plt.plot(self.before_cosy_wavelength, -self.cosy_smoothed_spec+1, 'r')
+        plt.plot(self.before_wavelength,
+                 self.smooth_and_normalize_spectrum(1, self.total_spectrum + self.detector_noise,
+                                                    self.scan_wavelengths)[0], 'r')
+        plt.plot(self.before_cosy_wavelength, -self.cosy_smoothed_spec + 1, 'r')
         plt.plot(self.scan_wavelengths, self.interpolated_spectrum, 'b')
-        plt.plot(self.cosy_wavelengths, -self.cosy_smoothed_spec+1, 'b')
+        plt.plot(self.cosy_wavelengths, -self.cosy_smoothed_spec + 1, 'b')
         plt.show()
 
         plt.figure()
         plt.title('Before & after correction [wavelength]')
         plt.legend(["before", "after"], loc="lower right")
-        plt.plot(self.before_wavelength, (self.total_spectrum+self.detector_noise)/np.max(self.total_spectrum+self.detector_noise), 'r')
-        #plt.plot(self.before_cosy_wavelength, -self.cosy_smoothed_spec+1, 'r')
-        plt.plot(self.scan_wavelengths, self.total_spectrum/np.max(self.total_spectrum), 'b')
-        #plt.plot(self.cosy_wavelengths, -self.cosy_smoothed_spec+1, 'b')
+        plt.plot(self.before_wavelength,
+                 (self.total_spectrum + self.detector_noise) / np.max(self.total_spectrum + self.detector_noise), 'r')
+        # plt.plot(self.before_cosy_wavelength, -self.cosy_smoothed_spec+1, 'r')
+        plt.plot(self.scan_wavelengths, self.total_spectrum / np.max(self.total_spectrum), 'b')
+        # plt.plot(self.cosy_wavelengths, -self.cosy_smoothed_spec+1, 'b')
         plt.show()
-
 
         plt.figure()
         plt.title('Before & after correction [wavelength]')
         plt.legend(["before", "after"], loc="lower right")
-        plt.plot(self.before_wavelength, self.total_spectrum+self.detector_noise, 'r')
-        #plt.plot(self.before_cosy_wavelength, -self.cosy_spectrum, 'r')
+        plt.plot(self.before_wavelength, self.total_spectrum + self.detector_noise, 'r')
+        # plt.plot(self.before_cosy_wavelength, -self.cosy_spectrum, 'r')
         plt.plot(self.scan_wavelengths, self.total_spectrum, 'b')
         plt.plot(self.cosy_wavelengths, -self.cosy_spectrum, 'b')
         plt.show()
@@ -788,15 +1096,19 @@ class AnalyzeSpectrum(TransmissionSpectrum):
         plt.figure()
         plt.title('Before & after correction [freq]')
         plt.legend(["before", "after"], loc="lower right")
-        plt.plot(self.before_scan_freqs, self.smooth_and_normalize_spectrum(10, self.total_spectrum-self.detector_noise, self.scan_wavelengths)[0], 'r')
-        plt.plot(self.before_cosy_scan_freqs, -self.cosy_smoothed_spec+1, 'r')
+        plt.plot(self.before_scan_freqs,
+                 self.smooth_and_normalize_spectrum(10, self.total_spectrum - self.detector_noise,
+                                                    self.scan_wavelengths)[0], 'r')
+        plt.plot(self.before_cosy_scan_freqs, -self.cosy_smoothed_spec + 1, 'r')
         plt.plot(self.scan_freqs, self.interpolated_spectrum, 'b')
-        plt.plot(cosy_scan_freqs, -self.cosy_smoothed_spec+1, 'b')
+        plt.plot(cosy_scan_freqs, -self.cosy_smoothed_spec + 1, 'b')
         plt.show()
+
 
 if __name__ == "__main__":
     print("Do you want to run a frequency scan? (True/False)")
     run_experiment = input()
+    # run_experiment = 0
     o = AnalyzeSpectrum(run_experiment=run_experiment)
 
 
