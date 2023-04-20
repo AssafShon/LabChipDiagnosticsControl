@@ -1,6 +1,5 @@
 import ctypes
 import numpy as np
-
 from picosdk.ps3000a import ps3000a as ps
 
 from picosdk.functions import assert_pico_ok
@@ -86,7 +85,7 @@ class PicoScopeControl():
         plt.legend()
         plt.show()
 
-    def set_trigger(self, trigger_direction = ps.PS3000A_THRESHOLD_DIRECTION['PS3000A_RISING'],thresholdUpper=1000,
+    def set_trigger(self, trigger_direction = ps.PS3000A_THRESHOLD_DIRECTION['PS3000A_RISING'],thresholdUpper=261,
                     hysteresisUpper=1000, thresholdLower=-10240, thresholdLowerHysteresis=1024,channel =  ps.PS3000A_CHANNEL['PS3000A_CHANNEL_A'],
                     thresholdMode =ps.PS3000A_THRESHOLD_MODE['PS3000A_LEVEL'], nChannelProperties = 1, autoTriggerMilliseconds = 10000):
         '''
@@ -103,15 +102,15 @@ class PicoScopeControl():
         # PS3000A_DIRECTION = [ps.PS3000A_DIRECTION(channel,trigger_direction,thresholdMode)]
         #defining channel directions
         chA_trigger_direction = trigger_direction
-        chB_trigger_direction=trigger_direction
-        chC_trigger_direction=trigger_direction
-        chD_trigger_direction=trigger_direction
-        ch_ext_trigger_direction=trigger_direction
-        ch_aux_trigger_direction=trigger_direction
+        chB_trigger_direction = trigger_direction
+        chC_trigger_direction = trigger_direction
+        chD_trigger_direction = trigger_direction
+        ch_ext_trigger_direction = trigger_direction
+        ch_aux_trigger_direction = trigger_direction
 
         state_true = ps.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_FALSE"]
         state_dont_care = ps.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"]
-        chA_trigger_condition = state_true
+        chA_trigger_condition = state_true    # only Channel A have active trigger, this channel get the sigGen signal
         chB_trigger_condition = state_dont_care
         chC_trigger_condition = state_dont_care
         chD_trigger_condition = state_dont_care
@@ -137,7 +136,71 @@ class PicoScopeControl():
                                                     chD_trigger_condition,ch_ext_trigger_condition,ch_aux_trigger_condition,
                                                        state_true)
         assert_pico_ok(ps.ps3000aSetTriggerChannelConditions(self.pico.chandle,
-                                                        ctypes.byref(trigConditionA), nConditions)) #
+                                                        ctypes.byref(trigConditionA), nConditions))
+
+
+
+
+
+    def set_trigger_backup(self, trigger_direction=ps.PS3000A_THRESHOLD_DIRECTION['PS3000A_RISING'], thresholdUpper=1000,
+                    hysteresisUpper=1000, thresholdLower=-10240, thresholdLowerHysteresis=1024,
+                    channel=ps.PS3000A_CHANNEL['PS3000A_CHANNEL_A'],
+                    thresholdMode=ps.PS3000A_THRESHOLD_MODE['PS3000A_LEVEL'], nChannelProperties=1,
+                    autoTriggerMilliseconds=10000):
+        '''
+        :param thresholdUpper: the upper threshold at which the trigger must fire. This is scaled in 16-bit ADC counts at the currently selected range for that channel.
+        :param hysteresisUpper:  the distance by which the signal must fall below the upper threshold (for rising edge triggers) or rise above the upper threshold (for falling edge triggers) in order to rearm the trigger for the next event. It is scaled in 16-bit counts.
+        :param thresholdLower:   the lower threshold at which the trigger must fire. This is scaled in 16-bit ADC counts at the currently selected range for that channel.
+        :param thresholdLowerHysteresis:  the hysteresis by which the trigger must exceed the lower threshold before it will fire. It is scaled in 16-bit counts.
+        :param thresholdMode: either a level or window trigger. Use one of these constants: LEVEL\WINDOW
+        :param nChannelProperties: the size of the channelProperties array. If zero, triggering is switched off
+        :return:
+        '''
+        # self.pico.status["trigger"] = ps.ps3000aSetSimpleTrigger(self.pico.chandle, 1, 0, 0, 2, 10000, 100)
+
+        # PS3000A_DIRECTION = [ps.PS3000A_DIRECTION(channel,trigger_direction,thresholdMode)]
+        # defining channel directions
+        chA_trigger_direction = trigger_direction
+        chB_trigger_direction = trigger_direction
+        chC_trigger_direction = trigger_direction
+        chD_trigger_direction = trigger_direction
+        ch_ext_trigger_direction = trigger_direction
+        ch_aux_trigger_direction = trigger_direction
+
+        state_true = ps.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_FALSE"]
+        state_dont_care = ps.PS3000A_TRIGGER_STATE["PS3000A_CONDITION_DONT_CARE"]
+        chA_trigger_condition = state_true  # only Channel A have active trigger, this channel get the sigGen signal
+        chB_trigger_condition = state_dont_care
+        chC_trigger_condition = state_dont_care
+        chD_trigger_condition = state_dont_care
+        ch_ext_trigger_condition = state_dont_care
+        ch_aux_trigger_condition = state_dont_care
+
+        self.pico.status["trigger"] = ps.ps3000aSetTriggerChannelDirections(self.pico.chandle, chA_trigger_direction,
+                                                                            chB_trigger_direction,
+                                                                            chC_trigger_direction,
+                                                                            chD_trigger_direction,
+                                                                            ch_ext_trigger_direction,
+                                                                            ch_aux_trigger_direction)
+        assert_pico_ok(self.pico.status["trigger"])
+
+        PS3000A_TRIGGER_CHANNEL_PROPERTIES = ps.PS3000A_TRIGGER_CHANNEL_PROPERTIES(thresholdUpper, hysteresisUpper,
+                                                                                   thresholdLower,
+                                                                                   thresholdLowerHysteresis,
+                                                                                   channel, thresholdMode)
+        self.pico.status["setTrigProp"] = ps.ps3000aSetTriggerChannelProperties(self.pico.chandle, ctypes.byref(
+            PS3000A_TRIGGER_CHANNEL_PROPERTIES), nChannelProperties, 0, autoTriggerMilliseconds)
+        assert_pico_ok(self.pico.status["setTrigProp"])
+
+        nConditions = 1
+
+        trigConditionA = ps.PS3000A_TRIGGER_CONDITIONS(chA_trigger_condition, chB_trigger_condition,
+                                                       chC_trigger_condition,
+                                                       chD_trigger_condition, ch_ext_trigger_condition,
+                                                       ch_aux_trigger_condition,
+                                                       state_true)
+        assert_pico_ok(ps.ps3000aSetTriggerChannelConditions(self.pico.chandle,
+                                                             ctypes.byref(trigConditionA), nConditions))  #
 
     def calibrate_range(self):
         '''
@@ -157,20 +220,20 @@ class PicoScopeControl():
         # finds the min/max analog offset for specific offset
         self.maxAnalogOffset = ctypes.c_float()
         self.minAnalogOffset = ctypes.c_float()
-        ps.ps3000aGetAnalogueOffset(self.pico.chandle,
-                             self.channel_range,
-                             ps.PS3000A_COUPLING['PS3000A_DC'],
-                             ctypes.byref(self.maxAnalogOffset),
-                             ctypes.byref(self.minAnalogOffset))
+        ps.ps3000aGetAnalogueOffset(self.pico.chandle, self.channel_range, ps.PS3000A_COUPLING['PS3000A_DC'],
+                             ctypes.byref(self.maxAnalogOffset), ctypes.byref(self.minAnalogOffset))
+
         # find mean value
         self.calibrate_trace_avg_voltage = float(np.mean(self.calibrate_trace))
-        if np.abs(self.calibrate_trace_avg_voltage)<0.1:
-            self.analog_offset = 0 # if the signal dc is less then mA don't offset
-        elif self.calibrate_trace_avg_voltage>self.maxAnalogOffset:
-            self.analog_offset = self.maxAnalogOffset
-        else:
-            self.analog_offset = np.max([self.minAnalogOffset.value,self.calibrate_trace_avg_voltage])
 
+        # if the signal dc is less than mA don't add offset
+        if np.abs(self.calibrate_trace_avg_voltage) < 0.1:
+            self.analog_offset = 0
+        # if the offset is bigger than the max value possible
+        elif self.calibrate_trace_avg_voltage > self.maxAnalogOffset.value:
+            self.analog_offset = self.maxAnalogOffset.value
+        else:
+            self.analog_offset = np.max([self.minAnalogOffset.value, self.calibrate_trace_avg_voltage])
 
         self.set_channel(channel="CH_B",channel_range=self.channel_range, analog_offset = -self.analog_offset)
         return trace_range
@@ -192,8 +255,8 @@ class PicoScopeControl():
         self.set_trigger()
 
         # Set number of pre and post trigger samples to be collected. Calibrated for 10 Hz scan rate of the sigGen.
-        preTriggerSamples = 40500 # 40500
-        postTriggerSamples = 40500 # 40500
+        preTriggerSamples = 40800 # 40500
+        postTriggerSamples = 40800 # 40500
         maxSamples = preTriggerSamples + postTriggerSamples
 
         # Get timebase information
@@ -405,7 +468,7 @@ class PicoScopeControl():
 
 
 class PicoSigGenControl():
-    def __init__(self,pico, pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 10, wave_type = 'TRAINGLE'):  # frequency = 10
+    def __init__(self,pico, pk_to_pk_voltage = 0.8, offset_voltage = 0, frequency = 9.9, wave_type = 'TRAINGLE'):  # frequency = 10
         '''
 
         :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V].
