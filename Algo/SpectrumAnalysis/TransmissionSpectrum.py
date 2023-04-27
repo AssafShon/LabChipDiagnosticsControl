@@ -74,8 +74,8 @@ class TransmissionSpectrum:
         if parmeters_by_console:
             # for delete the detector's noise
             try:
-                 self.detector_noise = 0
-                # self.check_detector_noise()
+                #self.detector_noise = 0
+                self.check_detector_noise()
             except Exception:
                 raise
 
@@ -91,35 +91,20 @@ class TransmissionSpectrum:
         # jump between wavelengths and take traces
         for i in np.arange(self.init_wavelength, self.final_wavelength, self.single_scan_width):
             self.Laser.tlb_set_wavelength(i)
-            # added wait time to make sure the laser moved to it's new wavelength
+            # added wait time to make sure the laser moved to its new wavelength
             time.sleep(WAIT_TIME)
 
-
-
-            reference_trace = self.Scope.get_trace()[CH_B]
-            # first scan to calibrate the range
+            # add offset
             self.Scope.calibrate_range()
-            offset_trace = self.Scope.get_trace()[CH_B]
-            # add the offset after correction
-            fixed_trace = [k + self.Scope.analog_offset*1000 for k in offset_trace]
-
-            # plt.figure()
-            # plt.plot(reference_trace)
-            # plt.plot(offset_trace)
-            # plt.plot(fixed_trace)
-            # plt.legend(['reference_trace', 'offset_trace', 'fixed_trace'])
-            # plt.show()
-
-
-
-
-
-            # take trace from the scope
-            self.partial_spectrum.append(self.Scope.get_trace()[CH_B])# + self.Scope.calibrate_trace_avg_voltage * 1000)
+            # compensate of offset
+            fixed_trace = [k + self.Scope.analog_offset for k in self.Scope.get_trace()[CH_B]]
+            self.partial_spectrum.append(fixed_trace)
 
             # collect the signal generator signal (after the amplifier,before the laser)
-            self.SigGen_spectrum.append(self.Scope.get_trace()[CH_A])
-            #self.SigGen_spectrum.append(fixed_trace)
+            # self.SigGen_spectrum.append(self.Scope.get_trace()[CH_A])
+
+            #self.calibrate_range_check()
+            self.SigGen_spectrum.append(self.Scope.calibrate_trace)
 
             # Optionally - collect list of indexes of scop trace limits
             self.trace_limits.append(init_limits + len(self.Scope.get_trace()[CH_B]))
@@ -214,14 +199,16 @@ class TransmissionSpectrum:
         plt.xlabel('Wavelength[nm]')
         plt.ylabel('Voltage[mV]')
         plt.grid(True)
-        plt.plot(self.scan_wavelengths[0:-1:decimation], Waveguide[0:-1:decimation],'r')
-        plt.plot(self.scan_wavelengths[0:-1:decimation], self.SigGen_spectrum[0:-1:decimation]/1000, 'r')
-        # plt.show()
+        #plt.plot(self.scan_wavelengths[0:-1:decimation], self.SigGen_spectrum[0:-1:decimation] / 1000, 'g')
+        plt.plot(self.scan_wavelengths[0:-1:decimation], self.SigGen_spectrum[0:-1:decimation], 'g')
+        plt.plot(self.scan_wavelengths[0:-1:decimation], Waveguide[0:-1:decimation], 'orange')
+
         self.trace_limits = [int(i) for i in self.trace_limits]
         for i in self.trace_limits:
             if i > 50 and i < (len(Waveguide)-50):
                 print(i)
                 plt.plot(self.scan_wavelengths[i-20: i+20], Waveguide[i-20: i+20], 'y')
+
         plt.show()
         time.sleep(WAIT_TIME)
 
@@ -256,6 +243,21 @@ class TransmissionSpectrum:
 
         return np_root
 
+    def calibrate_range_check(self):
+
+        offset_trace = self.Scope.get_trace()[CH_B]
+        # add the offset after correction
+        fixed_trace = [k + self.Scope.analog_offset for k in offset_trace]
+
+        plt.figure()
+        plt.plot(self.Scope.calibrate_trace)
+        plt.plot(offset_trace)
+        plt.plot(fixed_trace)
+        plt.title('Range'+str(list(self.Scope.pico.dictionary_voltage_range.values())[self.Scope.channel_range])+', Peak 2 peak = '+str(self.Scope.trace_range))
+        plt.legend(['reference_trace', 'offset_trace', 'fixed_trace'])
+        plt.show()
+
+
 if __name__ == "__main__":
     try:
         Python_Control=False
@@ -264,9 +266,9 @@ if __name__ == "__main__":
         o.get_wide_spectrum(parmeters_by_console=True)
         decimation = 10
 
-        # X-axis resolution check:
-        # (before use, remove '#' from CH_A lines)
+        # X-axis resolution check: (before use, remove '#' from CH_A lines)
         o.x_axis_resolution_check(o.total_spectrum, decimation=decimation)
+
         o.plot_transmission_spectrum(o.total_spectrum, o.total_Cosy_spectrum, decimation=decimation)
         o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\unnamed scans',o.total_spectrum,
                                o.total_Cosy_spectrum, decimation, 'Test', detector_noise_val = o.detector_noise, trace_limits = o.trace_limits)
