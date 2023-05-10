@@ -21,8 +21,8 @@ class LaserControl():
         self.answer = clr.System.Text.StringBuilder(64)
 
         self.ProductID = 4106
-        self.DeviceKey = '6700 SN95227'
-
+        #self.DeviceKey = '6700 SN95227'
+        self.DeviceKey = '6700 SN22500005'
         self.tlb_open()
 
         #self.tlb_query('*RST')  # Performs a soft reset of the instrument.
@@ -48,6 +48,11 @@ class LaserControl():
         self.tlb_query('OUTPut:TRACK 1')
         lambda_current = self.tlb_query('SOURCE:WAVELENGTH?')
         print('λ_current = {} nm'.format(lambda_current))
+        # time.sleep(4)
+        # if self.tlb_query('OUTPut:TRACK?') == '0':
+        #     print("track mode off")
+        # else:
+        #     print("track mode on :(")
         return lambda_current
 
     def loop_on_wavelength(self,single_scan_width,init_wavelength,final_wavelength, wait_time):
