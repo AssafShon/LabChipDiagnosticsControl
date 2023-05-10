@@ -140,6 +140,7 @@ class TransmissionSpectrum:
         :param parmeters_by_console:
         :return:
         '''
+
         self.total_spectrum = []
         self.partial_spectrum = []
 

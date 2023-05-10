@@ -19,6 +19,7 @@ CH_A = 0
 CH_B = 1
 
 
+
 class PicoControl():
     def __init__(self):
         self.connect()
