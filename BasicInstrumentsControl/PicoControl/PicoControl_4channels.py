@@ -67,7 +67,7 @@ class PicoScopeControl():
     def __init__(self,pico):
         #parameters
         self.pico = pico
-        self.set_channel(channel="CH_A",channel_range = 8, analog_offset = 0.0)
+        self.set_channel(channel="CH_A",channel_range=5, analog_offset=0.0)
         self.set_channel(channel="CH_B", channel_range=5, analog_offset=0.0)
         self.set_channel(channel="CH_C", channel_range=5, analog_offset=0.0)
         self.set_memory(sizeOfOneBuffer=50, numBuffersToCapture=10,Channel="CH_A")
@@ -86,9 +86,9 @@ class PicoScopeControl():
         plt.legend()
         plt.show()
 
-    def set_trigger(self, trigger_direction = ps.PS3000A_THRESHOLD_DIRECTION['PS3000A_RISING'],thresholdUpper=261,
-                    hysteresisUpper=1000, thresholdLower=-10240, thresholdLowerHysteresis=1024,channel =  ps.PS3000A_CHANNEL['PS3000A_CHANNEL_A'],
-                    thresholdMode =ps.PS3000A_THRESHOLD_MODE['PS3000A_LEVEL'], nChannelProperties = 1, autoTriggerMilliseconds = 10000):
+    def set_trigger(self, trigger_direction=ps.PS3000A_THRESHOLD_DIRECTION['PS3000A_RISING'], thresholdUpper=1000,     # thresholdUpper=261,
+                    hysteresisUpper=1000, thresholdLower=-10240, thresholdLowerHysteresis=1024, channel=ps.PS3000A_CHANNEL['PS3000A_CHANNEL_A'],
+                    thresholdMode=ps.PS3000A_THRESHOLD_MODE['PS3000A_LEVEL'], nChannelProperties=1, autoTriggerMilliseconds=10000):
         '''
         :param thresholdUpper: the upper threshold at which the trigger must fire. This is scaled in 16-bit ADC counts at the currently selected range for that channel.
         :param hysteresisUpper:  the distance by which the signal must fall below the upper threshold (for rising edge triggers) or rise above the upper threshold (for falling edge triggers) in order to rearm the trigger for the next event. It is scaled in 16-bit counts.
@@ -213,7 +213,7 @@ class PicoScopeControl():
 
         # finds the channel range which is larger by one from the closest one to the signal range
         range_diff = np.array(list(self.pico.dictionary_voltage_range.values()))*1000 - self.trace_range
-        self.channel_range = int(np.where(range_diff == [min(range_diff[range_diff > 0])])[0])    #+1
+        self.channel_range = int(np.where(range_diff == [min(range_diff[range_diff > 0])])[0])+2
 
         # finds the min/max analog offset for specific offset
         self.maxAnalogOffset = ctypes.c_float()
@@ -296,8 +296,8 @@ class PicoScopeControl():
         self.set_trigger()
 
         # Set number of pre and post trigger samples to be collected. Calibrated for 10 Hz scan rate of the sigGen.
-        preTriggerSamples = 2**12#40800 # 40500
-        postTriggerSamples = 2**12#40800 # 40500
+        preTriggerSamples = 2**12  # 40800 # 40500
+        postTriggerSamples = 2**12  # 40800 # 40500
         maxSamples = preTriggerSamples + postTriggerSamples
 
         # Get timebase information
@@ -309,7 +309,7 @@ class PicoScopeControl():
         # pointer to timeIntervalNanoseconds = ctypes.byref(timeIntervalns)
         # pointer to maxSamples = ctypes.byref(returnedMaxSamples)
         # segment index = 0
-        timebase = 80
+        timebase = 80*10
         timeIntervalns = ctypes.c_float()
         returnedMaxSamples = ctypes.c_int32()
         self.pico.status["getTimebase2"] = ps.ps3000aGetTimebase2(self.pico.chandle, timebase, maxSamples, ctypes.byref(timeIntervalns),0,
@@ -408,7 +408,7 @@ class PicoScopeControl():
 
         return [self.adc2mVChAMax, self.adc2mVChBMax,self.adc2mVChCMax]
 
-    def set_memory(self,sizeOfOneBuffer = 500,numBuffersToCapture = 10,Channel = "CH_A"):
+    def set_memory(self, sizeOfOneBuffer=500, numBuffersToCapture=10, Channel="CH_A"):
         self.sizeOfOneBuffer = sizeOfOneBuffer
         self.totalSamples = self.sizeOfOneBuffer * numBuffersToCapture
 
@@ -456,12 +456,12 @@ class PicoScopeControl():
                                                                            ps.PS3000A_RATIO_MODE['PS3000A_RATIO_MODE_NONE'])
             assert_pico_ok(self.pico.status["setDataBuffersC"])
 
-    def set_channel(self, channel="CH_A",channel_range=7, analog_offset=0.0):
+    def set_channel(self, channel="CH_A", channel_range=7, analog_offset=0.0):
         '''
 
         :param channel: channel a ("CH_A") or b ("CH_B") or c ("CH_C")
         :param channel_range: voltage range - table of range per number in API (2 - 50mv, 8 - 5V). Affects the digitization resolution.
-        :param analogue_offset: an offset, in volts, to be added to the input signal before it reaches the input amplifier and digitizer.
+        :param analog_offset: an offset, in volts, to be added to the input signal before it reaches the input amplifier and digitizer.
                                 up to 250mv - See the device data sheet for the allowable range.
         :return:
         '''
@@ -509,7 +509,7 @@ class PicoScopeControl():
 
 
 class PicoSigGenControl():
-    def __init__(self,pico, pk_to_pk_voltage = 0.106, offset_voltage = 0, frequency = 9.9, wave_type = 'TRAINGLE'):  # frequency = 10
+    def __init__(self,pico, pk_to_pk_voltage=0.2, offset_voltage=0, frequency=10, wave_type='TRAINGLE'):
         '''
 
         :param pk_to_pk_voltage: voltage peak to peak of the output of the signal generator [V].
@@ -519,7 +519,7 @@ class PicoSigGenControl():
         '''
         self.pico = pico
 
-        #unit conversion
+        # unit conversion
         self.pk_to_pk_voltage = int(pk_to_pk_voltage*1e6) #[uV]
         # self.WaveType = ps.PS4000A_WAVE_TYPE['PS3000A_'+wave_type]
         self.WaveType = ps.PS3000A_WAVE_TYPE['PS3000A_TRIANGLE']

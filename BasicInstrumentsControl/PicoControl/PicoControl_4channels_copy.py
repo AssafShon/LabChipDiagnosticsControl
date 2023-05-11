@@ -221,7 +221,7 @@ class PicoScopeControl():
         else:
             self.set_channel(channel="CH_B", channel_range=self.channel_range)
 
-    def get_trace(self):
+    def get_trace(self, init_wavelength=770, final_wavelength=772):
         '''
         calls for trace from the pico, triggered by upper and lower threshold to handle noise in trigger channel.
         :return:
@@ -236,7 +236,8 @@ class PicoScopeControl():
         maxSamples = preTriggerSamples + postTriggerSamples
 
 
-        timebase = int(self.calculate_timebase(init_wl = 770, final_wl = 781, scan_velocity = 0.5, maxSamples = maxSamples))
+        timebase = int(self.calculate_timebase(init_wl=init_wavelength, final_wl=final_wavelength, scan_velocity=0.5, maxSamples=maxSamples))
+        # timebase = 200000 give trace twice bigger than needed for 3 nm
         timeIntervals = ctypes.c_float()
         returnedMaxSamples = ctypes.c_int32()
         self.pico.status["getTimebase2"] = ps.ps3000aGetTimebase2(self.pico.chandle, timebase, maxSamples, ctypes.byref(timeIntervals),0,
@@ -350,7 +351,7 @@ class PicoScopeControl():
 
         return [self.adc2mVChAMax, self.adc2mVChBMax, self.adc2mVChCMax, self.adc2mVChDMax]
 
-    def calculate_timebase(self, init_wl = 770, final_wl = 781, scan_velocity = 0.5, maxSamples = 91000):
+    def calculate_timebase(self, init_wl=770, final_wl=781, scan_velocity=0.5, maxSamples=91000):
         '''
         giving length of scan [nm] and velocity of scan [nm/sec]
         calculate the timebase => sample interval [ns] = (timebase-2)/125,000,000
