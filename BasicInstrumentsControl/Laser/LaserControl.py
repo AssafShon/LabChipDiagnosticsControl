@@ -29,6 +29,10 @@ class LaserControl():
         self.tlb_query('*IDN?')
 
     def __del__(self):
+        #### comment: I added this 2 lines in 16.5.23 to stop the automate scan when the run stopped
+        #self.Laser.tlb_query('OUTPut:SCAN:STOP')
+        #time.sleep(1)
+        ####
         self.tlb_close()
 
     def tlb_open(self):

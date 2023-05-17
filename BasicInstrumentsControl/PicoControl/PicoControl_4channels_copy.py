@@ -240,8 +240,8 @@ class PicoScopeControl():
         # timebase = 200000 give trace twice bigger than needed for 3 nm
         timeIntervals = ctypes.c_float()
         returnedMaxSamples = ctypes.c_int32()
-        self.pico.status["getTimebase2"] = ps.ps3000aGetTimebase2(self.pico.chandle, timebase, maxSamples, ctypes.byref(timeIntervals),0,
-                                                        ctypes.byref(returnedMaxSamples), 0)
+        self.pico.status["getTimebase2"] = ps.ps3000aGetTimebase2(self.pico.chandle, timebase, maxSamples, ctypes.byref(timeIntervals), 0,
+                                                     ctypes.byref(returnedMaxSamples), 0)
         assert_pico_ok(self.pico.status["getTimebase2"])
 
         # Run block capture
@@ -359,10 +359,20 @@ class PicoScopeControl():
         '''
         duration = (final_wl-init_wl)/scan_velocity  # trace duration in sec
         sample_interval = duration/maxSamples  # sample time is sec
-        timebase = sample_interval*125000000+2
+        #### TEMP CHECK ####
+        #timebase_Temp = ((final_wl-init_wl)/(0.2*maxSamples))*125000000+2
+        #timebase = 2.6*sample_interval*125000000+2
+        timebase = sample_interval * 125000000 + 2
         if timebase > 2**32:
             print('Error - Trace too long')
             return 2**32
+        # understanding ps3000aGetTimebase2
+        # pico_timebase = 0
+        # timeIntervals = ctypes.c_float(sample_interval)
+        # returnedMaxSamples = ctypes.c_int32()
+        # self.pico.status["getTimebase2"] = ps.ps3000aGetTimebase2(self.pico.chandle, pico_timebase, maxSamples, ctypes.byref(timeIntervals), 0, ctypes.byref(returnedMaxSamples), 0)
+        # assert_pico_ok(self.pico.status["getTimebase2"])
+        # print('my calculate '+str(timebase)+', pico calculate: '+str(pico_timebase))
         return timebase
 
     def set_memory(self,sizeOfOneBuffer = 500,numBuffersToCapture = 10,Channel = "CH_A"):

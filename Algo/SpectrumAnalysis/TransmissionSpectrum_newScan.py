@@ -56,13 +56,15 @@ class TransmissionSpectrum:
             self.Laser = Laser()
 
             # define variables
+            self.scan_velocity = 0.5  # nm/sec
             self.final_wavelength = final_wavelength
             self.init_wavelength = init_wavelength
-            self.single_scan_width = self.SigGen.calculate_scan_width()
-            self.single_scan_width = 0.0224
-            #self.single_scan_width = 1
-
-            print('The scan width in nm is:', self.single_scan_width)
+            #self.single_scan_width = self.SigGen.calculate_scan_width()
+            #self.Laser.tlb_query('SOURce:WAVE:SLEW:FORWard {}'.format(self.scan_velocity))
+            #self.Laser.tlb_query('SOURce:WAVE:SLEW:RETurn {}'.format(self.scan_velocity))
+            # self.single_scan_width = 0.0224
+            # self.single_scan_width = 1
+            # print('The scan width in nm is:', self.single_scan_width)
             self.Laser.tlb_set_wavelength(self.init_wavelength)
             self.detector_noise = 0
 
@@ -86,8 +88,8 @@ class TransmissionSpectrum:
         if parmeters_by_console:
             # for delete the detector's noise
             try:
-                self.detector_noise = 0
-                #self.get_detector_noise()
+                #self.detector_noise = 0
+                self.get_detector_noise()
             except Exception:
                 raise
 
