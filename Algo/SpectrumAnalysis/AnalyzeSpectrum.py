@@ -6,11 +6,12 @@ from scipy.optimize import curve_fit
 from collections import Counter
 from TransmissionSpectrum import TransmissionSpectrum
 import time
-from sklearn.cluster import KMeans
+# from sklearn.cluster import KMeans
 import math
 import csv
 
 import os, sys
+
 
 parent = os.path.abspath('../../')
 sys.path.insert(1, parent)

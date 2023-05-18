@@ -11,7 +11,7 @@ class PlotPnz:
     def load(self):
 
         # first file
-        saved_file_root = r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\unnamed scans\20230420-114734'
+        saved_file_root = r'C:\Users\DavidLahav\OneDrive - qs-labs\Lab\Chip Tester\Tower\Etch_cal\GDSI\17.05.23\6_50\TM\20230517-154308'
         pnz_files_in_folder = [file for file in os.listdir(saved_file_root) if file.endswith('.npz')]
         load_filename = pnz_files_in_folder[0]
         np_root = os.path.join(saved_file_root, load_filename)
@@ -19,6 +19,7 @@ class PlotPnz:
         data = np.load(np_root)
         self.total_spectrum = data['spectrum']
         self.scan_wavelengths = data['wavelengths']
+        self.scan_freqs = self.get_scan_freqs_for_plot(self.scan_wavelengths)
         self.cosy = data['cosy_spectrum']
         self.trace_limits = data['trace_limits']
 
@@ -52,17 +53,25 @@ class PlotPnz:
         plt.grid(True)
         #plt.plot(self.scan_wavelengths[0:-1:decimation], self.SigGen_spectrum[0:-1:decimation] / 1000, 'g')
         # plt.plot(self.scan_wavelengths[0:-1:decimation], self.SigGen_spectrum[0:-1:decimation], 'g')
-        plt.plot(self.scan_wavelengths[0:-1:decimation], self.total_spectrum[0:-1:decimation], 'orange')
-        self.trace_limits = [int(i) for i in self.trace_limits]
-        for i in self.trace_limits:
-            if i > 50 and i < (len(self.total_spectrum)-50):
-                print(i)
-                plt.plot(self.scan_wavelengths[i-20: i+20], self.total_spectrum[i-20: i+20], 'green')
+        plt.plot(self.scan_freqs[0:-1:decimation], np.flip(self.total_spectrum)[0:-1:decimation], 'orange')
+
+        # self.trace_limits = [int(i) for i in self.trace_limits]
+        # for i in self.trace_limits:
+        #     if i > 50 and i < (len(self.total_spectrum)-50):
+        #         print(i)
+        #         plt.plot(self.scan_wavelengths[i-20: i+20], self.total_spectrum[i-20: i+20], 'green')
 
         plt.show()
 
 
+    def get_scan_freqs_for_plot(self, scan_wavelengths):
+        '''
 
+        :return: freqs - in Thz
+        '''
+        freqs = (2.99792458e8 * 1e-12) / (scan_wavelengths * 1e-9)
+        # freqs = np.flip(freqs)
+        return freqs
 
 
 if __name__ == "__main__":
