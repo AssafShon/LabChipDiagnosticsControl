@@ -19,6 +19,7 @@ class PlotPnz:
         data = np.load(np_root)
         self.total_spectrum = data['spectrum']
         self.scan_wavelengths = data['wavelengths']
+        self.scan_freqs = self.get_scan_freqs_for_plot(self.scan_wavelengths)
         self.cosy = data['cosy_spectrum']
         self.trace_limits = data['trace_limits']
 
@@ -62,7 +63,14 @@ class PlotPnz:
         plt.show()
 
 
+    def get_scan_freqs_for_plot(self, scan_wavelengths):
+        '''
 
+        :return: freqs - in Thz
+        '''
+        freqs = (2.99792458e8 * 1e-12) / (scan_wavelengths * 1e-9)
+        # freqs = np.flip(freqs)
+        return freqs
 
 
 if __name__ == "__main__":
