@@ -2,8 +2,6 @@
 created at 14/08/22
 
 @author: Assaf S.
-
-
 '''
 
 import pandas as pd
