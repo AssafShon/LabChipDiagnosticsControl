@@ -21,7 +21,6 @@ CH_C = 2
 CH_D = 3
 
 
-
 class TransmissionSpectrum:
     def __init__(self,init_wavelength=772, final_wavelength=772.3, Python_Control=True):
         '''
