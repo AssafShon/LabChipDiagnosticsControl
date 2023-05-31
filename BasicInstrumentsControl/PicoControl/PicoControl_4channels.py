@@ -443,12 +443,12 @@ class PicoScopeControl():
             assert_pico_ok(self.pico.status["setDataBuffersB"])
 
         else:
-            self.bufferBMax = np.zeros(shape=sizeOfOneBuffer, dtype=np.int16)
+            self.bufferCMax = np.zeros(shape=sizeOfOneBuffer, dtype=np.int16)
             memory_segment = 0
 
             self.pico.status["setDataBuffersC"] = ps.ps3000aSetDataBuffers(self.pico.chandle,
                                                                            ps.PS3000A_CHANNEL['PS3000A_CHANNEL_C'],
-                                                                           self.bufferBMax.ctypes.data_as(
+                                                                           self.bufferCMax.ctypes.data_as(
                                                                                ctypes.POINTER(ctypes.c_int16)),
                                                                            None,
                                                                            sizeOfOneBuffer,

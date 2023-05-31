@@ -4,12 +4,6 @@ created at 14/08/22
 @author: Assaf S.
 '''
 
-# This Class plots a transmition spectrum for the chip
-# Tasks:
-# 1. read each i'th (i=5) csv file to an array
-# 2. attach arrays
-# 3. plot
-
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -21,7 +15,7 @@ from Utility_functions import bcolors
 
 # PARAMETERS
 WAIT_TIME = 1
-CH_A=0
+CH_A = 0
 CH_B = 1
 CH_C = 2
 CH_D = 3
@@ -29,15 +23,15 @@ CH_D = 3
 
 
 class TransmissionSpectrum:
-    def __init__(self,init_wavelength = 772,final_wavelength = 772.3,Python_Control = True):
+    def __init__(self,init_wavelength=772, final_wavelength=772.3, Python_Control=True):
         '''
-
         :param directory: directory to load traces (relevant when Python_Control=False)
         :param init_wavelength: initial wavelength for scan [nm]
         :param final_wavelength:
         :param Python_Control:
         :param decimation:
         '''
+
         from BasicInstrumentsControl.PicoControl.PicoControl_4channels_copy import PicoControl as Pico
         from BasicInstrumentsControl.PicoControl.PicoControl_4channels_copy import PicoScopeControl as Scope
         from BasicInstrumentsControl.PicoControl.PicoControl_4channels_copy import PicoSigGenControl as SigGen
@@ -48,50 +42,48 @@ class TransmissionSpectrum:
             #connect to instruments
             self.Pico = Pico()
             # old scan trigger
-            # self.SigGen = SigGen(pico=self.Pico, pk_to_pk_voltage=0.106, offset_voltage=0, frequency=10, wave_type='PS3000A_TRIANGLE')# frequency = 10
+            self.SigGen = SigGen(pico=self.Pico, pk_to_pk_voltage=0.106, offset_voltage=0, frequency=10, wave_type='PS3000A_TRIANGLE')# frequency = 10
             # new scan trigger ----
-            self.SigGen = SigGen(pico=self.Pico, pk_to_pk_voltage=0.82, offset_voltage=0, frequency=10,
-                                wave_type='PS3000A_SQUARE')  # frequency = 10
+            # self.SigGen = SigGen(pico=self.Pico, pk_to_pk_voltage=0.8, offset_voltage=0, frequency=0.033,
+            #                    wave_type='PS3000A_SQUARE')  # frequency = 10
             self.Scope = Scope(pico=self.Pico)
             self.Laser = Laser()
 
             # define variables
-            self.scan_velocity = 0.5  # nm/sec
             self.final_wavelength = final_wavelength
             self.init_wavelength = init_wavelength
-            #self.single_scan_width = self.SigGen.calculate_scan_width()
-            #self.Laser.tlb_query('SOURce:WAVE:SLEW:FORWard {}'.format(self.scan_velocity))
-            #self.Laser.tlb_query('SOURce:WAVE:SLEW:RETurn {}'.format(self.scan_velocity))
-            # self.single_scan_width = 0.0224
-            # self.single_scan_width = 1
-            # print('The scan width in nm is:', self.single_scan_width)
             self.Laser.tlb_set_wavelength(self.init_wavelength)
+
+            # set Laser scan velocity
+            self.scan_velocity = 0.5  # nm/sec
+            self.Laser.tlb_query('SOURce:WAVE:SLEW:FORWard {}'.format(self.scan_velocity))
+            self.Laser.tlb_query('SOURce:WAVE:SLEW:RETurn {}'.format(self.scan_velocity))
+
+            # check if laser TRACK mode is off
+            self.track_mode_test()
+            # for delete the detector's noise
             self.detector_noise = 0
+            try:
+                self.detector_noise = 0
+                # self.get_detector_noise()
+            except Exception:
+                raise
 
     def get_wide_spectrum_DC_motor_only(self,parmeters_by_console):
         '''
-        scan wavelength range with laser built in scan function.
-        this way using only DC monitor without changing the piezo
+        scan wavelength range with laser built-in scan function.
+        this way using only DC-monitor without changing the piezo
         :param parmeters_by_console:
         :return:
         '''
 
-        self.total_spectrum = []
-        self.partial_spectrum = []
-
-        self.total_Cosy_spectrum = []
-        self.partial_Cosy_spectrum = []
+        self.total_spectrum = []  # channel B
+        self.total_Cosy_spectrum = []   # channel C
+        self.SigGen_spectrum = []   # channel A
         self.trace_limits = []
-        self.SigGen_spectrum = []
-        init_limits = 0
+        original_wl = self.init_wavelength
 
         if parmeters_by_console:
-            # for delete the detector's noise
-            try:
-                #self.detector_noise = 0
-                self.get_detector_noise()
-            except Exception:
-                raise
 
             print("Enter initial wavelength for scan in [nm]:")
             self.init_wavelength = float(input())
@@ -99,30 +91,94 @@ class TransmissionSpectrum:
             print("Enter final wavelength for scan in [nm]:")
             self.final_wavelength = float(input())
 
-        # need to add function that set the velocity
-        # or take it inside pico control from the laser by query
-        self.Laser.tlb_query('SOURce:WAVE:START {}'.format(self.init_wavelength))
+        self.Laser.tlb_query('SOURce:WAVE:START {}'.format(self.init_wavelength-0.5))
+        if self.final_wavelength > 781:
+            self.final_wavelength = 781
         self.Laser.tlb_query('SOURce:WAVE:STOP {}'.format(self.final_wavelength))
-        # need to create function in LaserControl
+        self.Laser.tlb_set_wavelength(self.init_wavelength-0.5)
 
-        self.Laser.tlb_set_wavelength(self.init_wavelength)
-        time.sleep(5*WAIT_TIME)
+        # protect the laser from start scan before set_wavelength(init_wavelength) is done
+        if abs(original_wl-(self.init_wavelength-0.5)) > 3:
+            time.sleep(abs(original_wl-(self.init_wavelength-0.5))*2*WAIT_TIME+0.5)
+
+        # laser scan
         print('scanning...')
         laser_feedback = self.Laser.tlb_query('OUTPut:SCAN:START')
         if laser_feedback != 'OK':
             raise Exception('Laser scan failed')
 
-        [self.SigGen_spectrum, self.total_spectrum, self.total_Cosy_spectrum, self.output_wavelength] = self.Scope.get_trace(self.init_wavelength, self.final_wavelength)
+        # pico scan
+        [self.SigGen_spectrum, self.total_spectrum, self.output_wavelength,
+         self.total_Cosy_spectrum] = self.Scope.get_trace(self.init_wavelength, self.final_wavelength)
+        print('scan ended. laser still run')
 
-        print('Track mode: ')
-        # need to add function that change the waiting time by distance from 772
-        time.sleep(5 * WAIT_TIME)
-        if self.Laser.tlb_query('OUTPut:TRACK?') == '0':
-            print('Off')
-        else:
-            print('still On')
-
+        # remove cosy offset to be around spectrum mean
+        self.cosy_offset()
         # get_scan_wavelengths
+        self.get_scan_wavelengths()
+
+    def get_detector_noise(self):
+        '''
+        turn off the laser, find the constant noise of the detector and turn on the laser
+        detector_noise = mean value of pico trace with the laser off
+        :return:
+        '''
+        # precaution - run the function only if the laser turned on by the user
+        if self.Laser.tlb_query('OUTPut:STATe?') != '1':
+            print('laser error - laser is off:)')
+            raise Exception('Error. Turn on the laser and try again')
+
+        # turn the laser off and take mean of pico trace
+        self.Laser.tlb_query('OUTPut:STATe 0')
+        time.sleep(WAIT_TIME*4)
+
+        if self.Laser.tlb_query('OUTPut:STATe?') == '0':
+            print('The laser turned off to find the detector noise')
+            self.detector_noise = np.mean(self.Scope.get_trace()[CH_B])
+
+            # turn the laser on
+            try:
+                self.Laser.tlb_query('OUTPut:STATe 1')
+            except Exception:
+                print('laser error - didn\'t turned on well')
+                raise Exception('Error in turning on the laser')
+        else:
+            print('laser return output state \' \', waiting more 5 sec and checks again')
+            time.sleep(WAIT_TIME * 5)
+            if self.Laser.tlb_query('OUTPut:STATe?') != '0':
+                # understanding the laser error
+                print('laser error - after turning off the laser \'output state\' != 0')
+                laser_reaction = self.Laser.tlb_query('OUTPut:STATe?')
+                print('after turning off, laser said = '+str(laser_reaction))
+                raise Exception('laser error - after turning off the laser \'output state\' != 0')
+
+        time.sleep(WAIT_TIME * 5)
+        laser_reaction = self.Laser.tlb_query('OUTPut:STATe?')
+        if laser_reaction == '1':
+            print('The laser turned on, the noise is '+str(np.round(self.detector_noise, 3)))
+        else:
+            print('after turning on, laser said = ' + str(laser_reaction))
+            raise Exception('laser error - after turning on the laser \'output state\' != 1')
+
+    def cosy_offset(self):
+        '''
+        remove CoSy offset to be around the spectrum mean value
+        :return:
+        '''
+        # offset to be around zero
+        self.total_Cosy_spectrum = self.total_Cosy_spectrum - np.mean(self.total_Cosy_spectrum)
+        # offset to be around total_spectrum mean value
+        self.total_Cosy_spectrum = self.total_Cosy_spectrum + np.mean(self.total_spectrum)
+        # flip CoSy in y-axis
+        self.total_Cosy_spectrum = -self.total_Cosy_spectrum
+
+    def get_scan_wavelengths(self):
+        '''
+        find the final wavelength by output wavelength data.
+        final_wl_index = index of self.final_wavelength
+        scan_wavelengths = vector of spectrum wavelengths
+        :return:
+        '''
         first_final_index = self.output_wavelength.index(np.max(self.output_wavelength))  # first max value
         reversed_output_wl = self.output_wavelength[first_final_index:first_final_index+499]
         reversed_output_wl.reverse()
@@ -132,76 +188,36 @@ class TransmissionSpectrum:
 
         sample_in_nm = (self.final_wavelength - self.init_wavelength) / self.final_wl_index
         self.scan_wavelengths = (sample_in_nm * np.arange(0, len(self.total_spectrum)))+self.init_wavelength
+
+    def plot_transmission_spectrum(self, decimation=1):
+        # make output_wavelength smaller
         self.output_wavelength = [j/100 for j in self.output_wavelength]
 
-        #plot
+        # plot
         plt.figure()
         plt.title('Transmission Spectrum')
         plt.xlabel('Wavelength[nm]')
         plt.ylabel('Voltage[mV]')
-        plt.legend(['full scan range', 'output wavelength', 'real range'])
-        #plt.grid(True)
-        plt.plot(self.scan_wavelengths[0:-1], self.total_spectrum[0:-1], 'r')
-        plt.plot(self.scan_wavelengths[0:-1], self.output_wavelength[0:-1], 'b')
-        plt.plot(self.scan_wavelengths[0:self.final_wl_index], self.total_spectrum[0:self.final_wl_index], 'y')
+        plt.legend(['full scan range', 'output_wavelength', 'SigGen_spectrum', 'cosy'])
+        # all data
+        plt.plot(self.scan_wavelengths[0:-1:decimation], self.total_spectrum[0:-1:decimation], 'r')
+        plt.plot(self.scan_wavelengths[0:-1:decimation], self.output_wavelength[0:-1:decimation], 'lightblue')
+        # plt.plot(self.scan_wavelengths[0:-1:decimation], self.SigGen_spectrum[0:-1:decimation], 'b')
+        plt.plot(self.scan_wavelengths[0:-1:decimation], self.total_Cosy_spectrum[0:-1:decimation], 'g')
+        # only [init_wavelength:final_wavelength]
+        plt.plot(self.scan_wavelengths[0:self.final_wl_index:decimation], self.total_spectrum[0:self.final_wl_index:decimation], 'y')
         plt.show()
 
-        # plt.plot(self.scan_wavelengths[0:-1], self.SigGen_spectrum[0:-1], 'p')
-    def get_detector_noise(self):
-        # precaution - run the function only if the laser turned on by the user
-        if self.Laser.tlb_query('OUTPut:STATe?') != '1':
-            raise TypeError('Error. Turn on the laser and try again')
+    def track_mode_test(self):
+        # check that Track mode of the laser is off
+        # time.sleep(WAIT_TIME*(self.final_wavelength - self.init_wavelength - 0.5)*2 + 0.5)
+        if self.Laser.tlb_query('OUTPut:TRACK?') == '0':
+            print('Track mode is off')
+        else:
+            print(bcolors.WARNING + 'Track mode is on' + bcolors.ENDC)
 
-        # turn the laser off and take mean of pico trace
-        self.Laser.tlb_query('OUTPut:STATe 0')
-        time.sleep(WAIT_TIME*4)
-        if self.Laser.tlb_query('OUTPut:STATe?') == '0':
-            print('The laser turned off to find the detector noise')
-            self.detector_noise = np.mean(self.Scope.get_trace()[CH_B])
-
-            # turn the laser on
-            try:
-                self.Laser.tlb_query('OUTPut:STATe 1')
-            except Exception:
-                raise TypeError('Error in finding the detectror\'s noise')
-
-        time.sleep(WAIT_TIME*5)
-        if self.Laser.tlb_query('OUTPut:STATe?') == '1':
-            print('The laser turned on, the noise is '+str(np.round(self.detector_noise,3)))
-        # if self.detector_noise == 0:
-        #     print('Wow, error:(')
-        # else:
-        #    print('The detector\'s noise is '+str(np.round(self.detector_noise,3)))
-
-    def get_scan_wavelengths(self):
-        m_wavenumber_transmitted = (self.final_wavelength - self.init_wavelength + self.single_scan_width) / len(
-            self.total_spectrum)
-        self.scan_wavelengths = (m_wavenumber_transmitted * np.arange(0, len(self.total_spectrum)) + (
-                    self.init_wavelength - self.single_scan_width / 2))
-        # self.scan_wavelengths = self.scan_wavelengths[0:-1]
-
-    def read_csv(self, filename):
-        csv_data = pd.read_csv(filename, sep=',', header=None)
-        return csv_data.values
-
-    def filter_spectrum(self, filter_type='high', filter_order=4, filter_critical_freq=0.9):
-        b, a = signal.butter(filter_order, filter_critical_freq, btype=filter_type)
-        return signal.filtfilt(b, a, self.total_spectrum)
-
-    def plot_transmission_spectrum(self, Waveguide, Cosy, decimation):
-        plt.figure()
-        plt.title('Transmission Spectrum')
-        plt.xlabel('Wavelength[nm]')
-        plt.ylabel('Voltage[mV]')
-        #plt.legend('WG scan', 'Cosy scan')
-        plt.grid(True)
-        plt.plot(self.scan_wavelengths[0:-1:decimation], Waveguide[0:-1:decimation],'r')
-        # plot cosy scan
-        #start_index = len(self.scan_wavelengths[0:-1]) - len(Cosy[0:-1])
-        #plt.plot(self.scan_wavelengths[start_index:-1:decimation], Cosy[0:-1:decimation],'g')
-        #plt.show()
-
-    def save_figure_and_data(self,dist_root,spectrum_data,Cosy,decimation,filename = 'Transmission_spectrum', mkdir = True, detector_noise_val=12, trace_limits = []):
+    def save_figure_and_data(self, dist_root, spectrum_data, Cosy, decimation, filename='Transmission_spectrum',
+                             mkdir=True, detector_noise_val=12, trace_limits=[]):
         timestr = time.strftime("%Y%m%d-%H%M%S")
         if mkdir:
             # create directory
@@ -229,80 +245,27 @@ class TransmissionSpectrum:
         np.savez(np_root,
                  spectrum=spectrum_data[0:-1:decimation], wavelengths=self.scan_wavelengths[0:-1:decimation],
                  cosy_spectrum=Cosy[0:-1:decimation], cosy_wavelengths=self.scan_wavelengths[0:-1:decimation],
+                 SigGen_spectrum=self.SigGen_spectrum[0:-1:decimation],
                  output_wavelength=self.output_wavelength[0:-1:decimation],
                  detector_noise=detector_noise_val, trace_limits=trace_limits)
 
         return np_root
 
-    # code tests
-    def x_axis_resolution_test(self, Waveguide, decimation):
-        '''
-        this function plot the scan with the limits between scope traces.
-        this function isn't necessary in the scan process, use only for checking that the scan precise in X axis
-        For changing the resolution in axis X-
-        a. change preTriggerSamples & postTriggerSamples in PicoControl_4channels
-        b. change the Frequency of SigGen() here in line 48
-
-        Before using this function - make sure SigGen_spectrum collect data from Channel A(input signal to laser)
-        '''
-        plt.figure()
-        plt.title('Transmission Spectrum X axis check')
-        plt.xlabel('Wavelength[nm]')
-        plt.ylabel('Voltage[mV]')
-        plt.grid(True)
-        #plt.plot(self.scan_wavelengths[0:-1:decimation], self.SigGen_spectrum[0:-1:decimation] / 1000, 'g')
-        # plt.plot(self.scan_wavelengths[0:-1:decimation], self.SigGen_spectrum[0:-1:decimation], 'g')
-        plt.plot(self.scan_wavelengths[0:-1:decimation], Waveguide[0:-1:decimation], 'orange')
-
-        self.trace_limits = [int(i) for i in self.trace_limits]
-        for i in self.trace_limits:
-            if i > 50 and i < (len(Waveguide)-50):
-                print(i)
-                plt.plot(self.scan_wavelengths[i-20: i+20], Waveguide[i-20: i+20], 'y')
-
-        plt.show()
-        time.sleep(WAIT_TIME)
-
-    def calibrate_range_test(self):
-        '''
-        plot all the versions of every trace, for checking the range calibration
-        :return:
-        '''
-        offset_trace = self.Scope.get_trace()[CH_B]
-        # add the offset after correction
-        fixed_trace = [k + self.Scope.analog_offset for k in offset_trace]
-
-        plt.figure()
-        plt.plot(self.Scope.calibrate_trace)
-        plt.plot(offset_trace)
-        plt.plot(fixed_trace)
-        plt.title('Range'+str(list(self.Scope.pico.dictionary_voltage_range.values())[self.Scope.channel_range])+', Peak 2 peak = '+str(self.Scope.trace_range))
-        plt.legend(['reference_trace', 'offset_trace', 'fixed_trace'])
-        plt.show()
-
-
 if __name__ == "__main__":
     try:
         Python_Control = False
-        o = TransmissionSpectrum(init_wavelength=772, final_wavelength=781, Python_Control=True)
+        o = TransmissionSpectrum(init_wavelength=769.5, final_wavelength=781, Python_Control=True)
         # get spectrum
         o.get_wide_spectrum_DC_motor_only(parmeters_by_console=True)
-        # this save is for DC_motor_only
         decimation = 1
+        o.plot_transmission_spectrum(decimation)
         o.scan_wavelengths = o.scan_wavelengths[0:o.final_wl_index]
-        if len(o.total_Cosy_spectrum) < o.final_wl_index:
-            o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\unnamed scans',o.total_spectrum[0:o.final_wl_index],
-                               o.total_Cosy_spectrum[0:o.final_wl_index], decimation, 'Test', detector_noise_val=o.detector_noise, trace_limits=o.trace_limits)
-        else:
-            o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\unnamed scans',o.total_spectrum[0:o.final_wl_index],
-                               o.total_Cosy_spectrum[0:o.final_wl_index], decimation, 'Test', detector_noise_val=o.detector_noise, trace_limits=o.trace_limits)
-
-        # X-axis resolution check: (before use, remove '#' from CH_A lines)
-        # o.x_axis_resolution_test(o.total_spectrum, decimation=decimation)
-
-        # o.plot_transmission_spectrum(o.total_spectrum, o.total_Cosy_spectrum, decimation=decimation)
-        # o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\unnamed scans',o.total_spectrum,
-        #                        o.total_Cosy_spectrum, decimation, 'Test', detector_noise_val=o.detector_noise, trace_limits=o.trace_limits)
+        # if len(o.total_Cosy_spectrum) < o.final_wl_index:
+        o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\unnamed scans',o.total_spectrum[0:o.final_wl_index],
+                        o.total_Cosy_spectrum[0:o.final_wl_index], decimation, 'Test', detector_noise_val=o.detector_noise, trace_limits=o.trace_limits)
+        # else:
+        #     o.save_figure_and_data(r'C:\Users\Lab2\qs-labs\R&D - Lab\Chip Tester\Spectrum_transmission\unnamed scans',o.total_spectrum[0:o.final_wl_index],
+        #                        o.total_Cosy_spectrum[0:o.final_wl_index], decimation, 'Test', detector_noise_val=o.detector_noise, trace_limits=o.trace_limits)
         o.Pico.__del__()
         o.Laser.__del__()
     except:
